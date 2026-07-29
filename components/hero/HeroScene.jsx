@@ -1,205 +1,201 @@
 'use client'
 
-import { Suspense, useRef } from 'react'
-import { Canvas, extend, useFrame } from '@react-three/fiber'
-import { Float, shaderMaterial } from '@react-three/drei'
-import { easing } from 'maath'
+import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { Canvas, useFrame } from '@react-three/fiber'
+import { Environment, Lightformer } from '@react-three/drei'
 import * as THREE from 'three'
 
-/* ------------------------------------------------------------------ */
-/*  Custom holographic material: 3D-noise displacement + iridescent    */
-/*  fresnel shading. Reads as premium liquid-chrome glass on white.    */
-/* ------------------------------------------------------------------ */
+/* Nested rings, each tumbling on its own axis at its own rate. */
+const RINGS = [
+  { radius: 1.85, tube: 0.008, tilt: [Math.PI / 2, 0, 0], speed: 0.18, color: '#b9bdc9' },
+  { radius: 1.52, tube: 0.018, tilt: [0.35, 0.25, 0.1], speed: -0.3, color: '#e9ebf0' },
+  { radius: 1.2, tube: 0.028, tilt: [1.15, 0.55, 0.2], speed: 0.44, color: '#f2f3f7' },
+  { radius: 0.88, tube: 0.042, tilt: [0.25, 1.25, 0.45], speed: -0.62, color: '#dfe2ff' },
+]
 
-const HoloMaterial = shaderMaterial(
-  {
-    uTime: 0,
-    uDistort: 0.32,
-    uFreq: 1.35,
-    uMouse: 0,
-    uFresnelPower: 2.4,
-    uHueShift: 0,
-  },
-  /* glsl */ `
-    uniform float uTime;
-    uniform float uDistort;
-    uniform float uFreq;
-    uniform float uMouse;
-    varying vec3 vNormalW;
-    varying vec3 vViewDir;
-    varying float vDisp;
+const TICKS = 84
+const BEZEL_RADIUS = 2.1
 
-    // Ashima simplex noise 3D --------------------------------------------------
-    vec4 permute(vec4 x){ return mod(((x*34.0)+1.0)*x, 289.0); }
-    vec4 taylorInvSqrt(vec4 r){ return 1.79284291400159 - 0.85373472095314 * r; }
-    float snoise(vec3 v){
-      const vec2 C = vec2(1.0/6.0, 1.0/3.0);
-      const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-      vec3 i  = floor(v + dot(v, C.yyy));
-      vec3 x0 = v - i + dot(i, C.xxx);
-      vec3 g = step(x0.yzx, x0.xyz);
-      vec3 l = 1.0 - g;
-      vec3 i1 = min(g.xyz, l.zxy);
-      vec3 i2 = max(g.xyz, l.zxy);
-      vec3 x1 = x0 - i1 + 1.0 * C.xxx;
-      vec3 x2 = x0 - i2 + 2.0 * C.xxx;
-      vec3 x3 = x0 - 1.0 + 3.0 * C.xxx;
-      i = mod(i, 289.0);
-      vec4 p = permute(permute(permute(
-                 i.z + vec4(0.0, i1.z, i2.z, 1.0))
-               + i.y + vec4(0.0, i1.y, i2.y, 1.0))
-               + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-      float n_ = 1.0/7.0;
-      vec3 ns = n_ * D.wyz - D.xzx;
-      vec4 j = p - 49.0 * floor(p * ns.z *ns.z);
-      vec4 x_ = floor(j * ns.z);
-      vec4 y_ = floor(j - 7.0 * x_);
-      vec4 x = x_ *ns.x + ns.yyyy;
-      vec4 y = y_ *ns.x + ns.yyyy;
-      vec4 h = 1.0 - abs(x) - abs(y);
-      vec4 b0 = vec4(x.xy, y.xy);
-      vec4 b1 = vec4(x.zw, y.zw);
-      vec4 s0 = floor(b0)*2.0 + 1.0;
-      vec4 s1 = floor(b1)*2.0 + 1.0;
-      vec4 sh = -step(h, vec4(0.0));
-      vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
-      vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
-      vec3 p0 = vec3(a0.xy, h.x);
-      vec3 p1 = vec3(a0.zw, h.y);
-      vec3 p2 = vec3(a1.xy, h.z);
-      vec3 p3 = vec3(a1.zw, h.w);
-      vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
-      p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-      vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
-      m = m * m;
-      return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
-    }
-
-    void main() {
-      float t = uTime * 0.35;
-      float n = snoise(position * uFreq + vec3(t, t * 0.7, -t));
-      float disp = n * (uDistort + uMouse * 0.18);
-      vDisp = disp;
-
-      vec3 displaced = position + normal * disp;
-
-      vec4 worldPos = modelMatrix * vec4(displaced, 1.0);
-      vNormalW = normalize(mat3(modelMatrix) * normal);
-      vViewDir = normalize(cameraPosition - worldPos.xyz);
-
-      gl_Position = projectionMatrix * viewMatrix * worldPos;
-    }
-  `,
-  /* glsl */ `
-    uniform float uTime;
-    uniform float uFresnelPower;
-    uniform float uHueShift;
-    varying vec3 vNormalW;
-    varying vec3 vViewDir;
-    varying float vDisp;
-
-    // Inigo Quilez cosine palette
-    vec3 palette(float t){
-      vec3 a = vec3(0.5);
-      vec3 b = vec3(0.5);
-      vec3 c = vec3(1.0, 1.0, 1.0);
-      vec3 d = vec3(0.00, 0.15, 0.35);
-      return a + b * cos(6.28318 * (c * t + d));
-    }
-
-    void main() {
-      vec3 N = normalize(vNormalW);
-      vec3 V = normalize(vViewDir);
-      float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), uFresnelPower);
-
-      // Iridescent band driven by fresnel, displacement and time.
-      float band = fres + vDisp * 1.4 + uTime * 0.03 + uHueShift;
-      vec3 irid = palette(band);
-
-      // Pristine near-white core that blooms into iridescence at grazing angles.
-      vec3 core = vec3(0.97);
-      vec3 col = mix(core, irid, smoothstep(0.05, 0.9, fres));
-
-      // Subtle specular glint
-      col += pow(fres, 6.0) * 0.6;
-
-      gl_FragColor = vec4(col, 1.0);
-      #include <colorspace_fragment>
-    }
-  `,
-)
-
-extend({ HoloMaterial })
-
-function HoloBlob({ pointer }) {
-  const group = useRef()
-  const mat = useRef()
-
-  useFrame((state, delta) => {
-    const t = state.clock.elapsedTime
-    if (mat.current) {
-      mat.current.uTime = t
-      // Pointer distance from centre drives extra displacement energy.
-      const target = Math.hypot(pointer.current.x, pointer.current.y)
-      mat.current.uMouse = THREE.MathUtils.lerp(mat.current.uMouse, target, 0.08)
-    }
-    if (group.current) {
-      group.current.rotation.y += delta * 0.12
-      easing.damp3(
-        group.current.rotation,
-        [pointer.current.y * 0.4, group.current.rotation.y + pointer.current.x * 0.0, 0],
-        0.5,
-        delta,
-      )
-      easing.damp3(
-        group.current.position,
-        [pointer.current.x * 0.5, pointer.current.y * 0.35, 0],
-        0.5,
-        delta,
-      )
-    }
+function Ring({ radius, tube, tilt, speed, color }) {
+  const mesh = useRef(null)
+  useFrame((_, delta) => {
+    if (mesh.current) mesh.current.rotation.x += delta * speed
   })
-
   return (
-    <group ref={group}>
-      <Float speed={1.1} rotationIntensity={0.25} floatIntensity={0.7}>
-        <mesh scale={1.55}>
-          <icosahedronGeometry args={[1, 128]} />
-          {/* @ts-ignore custom material */}
-          <holoMaterial ref={mat} />
-        </mesh>
-        {/* faint technical wireframe shell rotating within */}
-        <mesh scale={1.72} rotation={[0.4, 0.2, 0]}>
-          <icosahedronGeometry args={[1, 3]} />
-          <meshBasicMaterial wireframe transparent opacity={0.06} color="#0a0a0a" />
-        </mesh>
-      </Float>
+    <group rotation={tilt}>
+      <mesh ref={mesh}>
+        <torusGeometry args={[radius, tube, 24, 220]} />
+        <meshStandardMaterial color={color} metalness={1} roughness={0.06} />
+      </mesh>
     </group>
   )
 }
 
-function Rig({ pointer }) {
-  useFrame((state) => {
-    pointer.current.x = state.pointer.x
-    pointer.current.y = state.pointer.y
+/** A machined bezel of fine tick marks — the "instrument" detail. */
+function Bezel() {
+  const mesh = useRef(null)
+
+  useEffect(() => {
+    if (!mesh.current) return
+    const dummy = new THREE.Object3D()
+    for (let i = 0; i < TICKS; i++) {
+      const a = (i / TICKS) * Math.PI * 2
+      const long = i % 7 === 0
+      dummy.position.set(Math.cos(a) * BEZEL_RADIUS, Math.sin(a) * BEZEL_RADIUS, 0)
+      dummy.rotation.set(0, 0, a)
+      dummy.scale.set(long ? 0.11 : 0.05, 0.006, 0.006)
+      dummy.updateMatrix()
+      mesh.current.setMatrixAt(i, dummy.matrix)
+    }
+    mesh.current.instanceMatrix.needsUpdate = true
+  }, [])
+
+  useFrame((_, delta) => {
+    if (mesh.current) mesh.current.rotation.z += delta * 0.05
   })
-  return null
+
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, TICKS]}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color="#9aa0ad" metalness={0.9} roughness={0.3} />
+    </instancedMesh>
+  )
+}
+
+/** Micro satellites tracing the inner orbits. */
+function Satellites() {
+  const group = useRef(null)
+  const items = useMemo(
+    () => [
+      { r: 1.52, speed: 0.55, offset: 0, tilt: [0.35, 0.25, 0.1], size: 0.045, accent: false },
+      { r: 1.2, speed: -0.8, offset: 2.1, tilt: [1.15, 0.55, 0.2], size: 0.035, accent: true },
+      { r: 0.88, speed: 1.1, offset: 4.2, tilt: [0.25, 1.25, 0.45], size: 0.03, accent: false },
+    ],
+    [],
+  )
+  const refs = useRef([])
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime
+    items.forEach((it, i) => {
+      const el = refs.current[i]
+      if (!el) return
+      const a = t * it.speed + it.offset
+      el.position.set(Math.cos(a) * it.r, Math.sin(a) * it.r, 0)
+    })
+  })
+
+  return (
+    <group ref={group}>
+      {items.map((it, i) => (
+        <group key={i} rotation={it.tilt}>
+          <mesh ref={(el) => (refs.current[i] = el)}>
+            <sphereGeometry args={[it.size, 24, 24]} />
+            {it.accent ? (
+              <meshStandardMaterial
+                color="#5b5bff"
+                emissive="#5b5bff"
+                emissiveIntensity={0.9}
+                roughness={0.25}
+                metalness={0.4}
+              />
+            ) : (
+              <meshStandardMaterial color="#ffffff" metalness={1} roughness={0.05} />
+            )}
+          </mesh>
+        </group>
+      ))}
+    </group>
+  )
+}
+
+function Gyroscope({ pointer }) {
+  const group = useRef(null)
+
+  useFrame((state, delta) => {
+    const g = group.current
+    if (!g) return
+    const t = state.clock.elapsedTime
+
+    // Damped tilt toward the cursor, layered over a slow idle drift.
+    const targetX = pointer.current.y * -0.45 + Math.sin(t * 0.18) * 0.05
+    const targetY = pointer.current.x * 0.55 + Math.cos(t * 0.14) * 0.06
+    g.rotation.x = THREE.MathUtils.damp(g.rotation.x, targetX, 2.6, delta)
+    g.rotation.y = THREE.MathUtils.damp(g.rotation.y, targetY, 2.6, delta)
+
+    // Breathing scale keeps it feeling alive.
+    const s = 1 + Math.sin(t * 0.5) * 0.012
+    g.scale.setScalar(s)
+  })
+
+  return (
+    <group ref={group}>
+      <Bezel />
+      {RINGS.map((r, i) => (
+        <Ring key={i} {...r} />
+      ))}
+      <Satellites />
+
+      {/* Core: a polished bearing wrapped in a faint accent halo */}
+      <mesh>
+        <sphereGeometry args={[0.2, 48, 48]} />
+        <meshStandardMaterial color="#fafbfd" metalness={1} roughness={0.03} />
+      </mesh>
+      <mesh>
+        <sphereGeometry args={[0.34, 32, 32]} />
+        <meshBasicMaterial color="#5b5bff" transparent opacity={0.07} />
+      </mesh>
+    </group>
+  )
 }
 
 export default function HeroScene() {
-  const pointer = useRef({ x: 0, y: 0 })
+  // Tracked at window level so the sculpture still reacts while the canvas
+  // layer stays pointer-transparent for the text and buttons above it.
+  const pointer = useRef(new THREE.Vector2(0, 0))
+
+  useEffect(() => {
+    const onMove = (e) => {
+      pointer.current.x = (e.clientX / window.innerWidth) * 2 - 1
+      pointer.current.y = -(e.clientY / window.innerHeight) * 2 + 1
+    }
+    window.addEventListener('mousemove', onMove)
+    return () => window.removeEventListener('mousemove', onMove)
+  }, [])
 
   return (
     <Canvas
       dpr={[1, 2]}
       gl={{ antialias: true, alpha: true }}
-      camera={{ position: [0, 0, 6], fov: 42 }}
+      camera={{ position: [0, 0, 6.4], fov: 42 }}
     >
       <Suspense fallback={null}>
-        <Rig pointer={pointer} />
-        <group position={[2.4, 0.1, 0]}>
-          <HoloBlob pointer={pointer} />
+        <ambientLight intensity={0.4} />
+        <directionalLight position={[3, 5, 4]} intensity={1.2} />
+
+        <group position={[2.55, 0.05, 0]} scale={0.8}>
+          <Gyroscope pointer={pointer} />
         </group>
+
+        {/* A mid-grey surround with bright panels: the contrast between the two
+            is what makes the metal read as polished chrome. */}
+        <Environment resolution={512}>
+          <color attach="background" args={['#b9bec9']} />
+          <Lightformer intensity={3} position={[0, 5, 3]} scale={[10, 4, 1]} />
+          <Lightformer intensity={2} position={[5, 0, 2]} scale={[3, 10, 1]} />
+          <Lightformer
+            intensity={1.6}
+            position={[-5, 1, 2]}
+            scale={[3, 10, 1]}
+            color="#e2e6ff"
+          />
+          <Lightformer
+            intensity={1.2}
+            position={[0, -4, 2]}
+            scale={[8, 3, 1]}
+            color="#fff2e6"
+          />
+        </Environment>
       </Suspense>
     </Canvas>
   )

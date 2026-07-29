@@ -2,6 +2,7 @@
 
 import SectionHeading from '@/components/ui/SectionHeading'
 import Reveal, { RevealWords } from '@/components/ui/Reveal'
+import Marquee from '@/components/ui/Marquee'
 
 const marquee = [
   'Brand Strategy',
@@ -70,19 +71,11 @@ export default function About() {
       </div>
 
       {/* Skills marquee */}
-      <div className="mt-24 flex select-none overflow-hidden border-y border-line py-6">
-        <div className="flex shrink-0 animate-marquee items-center gap-10 pr-10">
-          {[...marquee, ...marquee].map((item, i) => (
-            <span
-              key={i}
-              className="flex items-center gap-10 font-serif text-2xl font-light italic text-ink/80 sm:text-3xl"
-            >
-              {item}
-              <span className="text-accent">✦</span>
-            </span>
-          ))}
-        </div>
-      </div>
+      <Marquee
+        items={marquee}
+        className="mt-24 border-y border-line py-6"
+        itemClassName="font-serif text-2xl font-light italic text-ink/80 sm:text-3xl"
+      />
     </section>
   )
 }

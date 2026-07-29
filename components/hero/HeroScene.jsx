@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Float, Environment, ContactShadows } from '@react-three/drei'
+import { Environment, ContactShadows } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import { easing } from 'maath'
 
@@ -73,40 +73,59 @@ function useImperfectionMap() {
 }
 
 /**
- * Dark polished metal solid. The mesh spins slowly so reflections sweep across
- * its surface, while the outer group leans and drifts toward the cursor for a
- * magnetic, hand-follows-mouse feel.
+ * Dark polished metal solid, drifting as though suspended in water.
+ *
+ * Motion is split across three nested transforms so none of them fight each
+ * other: the outer group lags behind the cursor, the middle group traces a
+ * slow figure-eight, and the mesh itself turns at a rate that eases in and out
+ * rather than at a fixed speed — a constant spin is what reads as mechanical.
  */
 function MetalKnot({ pointer }) {
-  const group = useRef()
+  const lean = useRef()
+  const drift = useRef()
   const mesh = useRef()
   const imperfection = useImperfectionMap()
 
   useFrame((state, delta) => {
+    const t = state.clock.elapsedTime
+
     if (mesh.current) {
-      mesh.current.rotation.x += delta * 0.1
-      mesh.current.rotation.y += delta * 0.14
+      // Incommensurate frequencies keep the rhythm from ever looping audibly.
+      mesh.current.rotation.y += delta * (0.085 + 0.065 * Math.sin(t * 0.29))
+      mesh.current.rotation.x += delta * (0.04 + 0.04 * Math.sin(t * 0.21 + 1.1))
+      mesh.current.rotation.z = Math.sin(t * 0.17) * 0.24
     }
 
-    if (group.current) {
+    if (drift.current) {
+      drift.current.position.set(
+        Math.sin(t * 0.23) * 0.2,
+        Math.sin(t * 0.31 + 0.7) * 0.16,
+        0,
+      )
+      drift.current.rotation.z = Math.sin(t * 0.13 + 2.1) * 0.1
+    }
+
+    // Generous smoothing time so the object trails the cursor languidly
+    // instead of snapping to it.
+    if (lean.current) {
       easing.damp3(
-        group.current.rotation,
-        [-pointer.current.y * 0.55, pointer.current.x * 0.95, pointer.current.x * 0.08],
-        0.35,
+        lean.current.rotation,
+        [-pointer.current.y * 0.42, pointer.current.x * 0.72, 0],
+        0.9,
         delta,
       )
       easing.damp3(
-        group.current.position,
-        [pointer.current.x * 0.42, pointer.current.y * 0.28, 0],
-        0.45,
+        lean.current.position,
+        [pointer.current.x * 0.36, pointer.current.y * 0.24, 0],
+        0.85,
         delta,
       )
     }
   })
 
   return (
-    <group ref={group}>
-      <Float speed={1} rotationIntensity={0.22} floatIntensity={0.6}>
+    <group ref={lean}>
+      <group ref={drift}>
         <mesh ref={mesh} castShadow scale={0.78}>
           <torusKnotGeometry args={[1, 0.3, 512, 64]} />
           <meshPhysicalMaterial
@@ -119,7 +138,7 @@ function MetalKnot({ pointer }) {
             clearcoatRoughness={0.06}
           />
         </mesh>
-      </Float>
+      </group>
     </group>
   )
 }
@@ -149,12 +168,12 @@ export default function HeroScene() {
         <directionalLight position={[4, 6, 5]} intensity={1.2} castShadow />
 
         {/* Offset into the right-hand negative space, away from the headline */}
-        <group position={[2.25, 0.1, 0]}>
+        <group position={[2.12, 0.1, 0]}>
           <MetalKnot pointer={pointer} />
         </group>
 
         <ContactShadows
-          position={[2.25, -2.25, 0]}
+          position={[2.12, -2.25, 0]}
           opacity={0.35}
           scale={10}
           blur={2.4}

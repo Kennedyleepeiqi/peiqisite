@@ -1,213 +1,169 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { Suspense, useEffect, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Environment, Lightformer } from '@react-three/drei'
-import * as THREE from 'three'
+import { Float, Environment, Lightformer, ContactShadows } from '@react-three/drei'
+import { EffectComposer, Bloom } from '@react-three/postprocessing'
+import { easing } from 'maath'
 
 /**
- * Low-chroma "planetary" palette. Kept desaturated and paired with high
- * metalness so each orbit reads as anodised metal rather than plastic.
+ * Polished chrome solid. The mesh spins slowly so the environment streaks
+ * sweep across its surface, while the outer group leans and drifts toward the
+ * cursor for a magnetic, hand-follows-mouse feel.
  */
-const PALETTE = {
-  pewter: '#a9b0bf',
-  periwinkle: '#98a1d4',
-  sage: '#a3bfb0',
-  clay: '#cdaa9d',
-  champagne: '#e4c9a1',
-}
-
-/* Nested rings, each tumbling on its own axis at its own rate. */
-const RINGS = [
-  { radius: 1.85, tube: 0.008, tilt: [Math.PI / 2, 0, 0], speed: 0.18, color: PALETTE.pewter },
-  { radius: 1.52, tube: 0.018, tilt: [0.35, 0.25, 0.1], speed: -0.3, color: PALETTE.periwinkle },
-  { radius: 1.2, tube: 0.028, tilt: [1.15, 0.55, 0.2], speed: 0.44, color: PALETTE.sage },
-  { radius: 0.88, tube: 0.042, tilt: [0.25, 1.25, 0.45], speed: -0.62, color: PALETTE.clay },
-]
-
-const TICKS = 84
-const BEZEL_RADIUS = 2.1
-
-function Ring({ radius, tube, tilt, speed, color }) {
-  const mesh = useRef(null)
-  useFrame((_, delta) => {
-    if (mesh.current) mesh.current.rotation.x += delta * speed
-  })
-  return (
-    <group rotation={tilt}>
-      <mesh ref={mesh}>
-        <torusGeometry args={[radius, tube, 24, 220]} />
-        <meshStandardMaterial color={color} metalness={1} roughness={0.06} />
-      </mesh>
-    </group>
-  )
-}
-
-/** A machined bezel of fine tick marks — the "instrument" detail. */
-function Bezel() {
-  const mesh = useRef(null)
-
-  useEffect(() => {
-    if (!mesh.current) return
-    const dummy = new THREE.Object3D()
-    for (let i = 0; i < TICKS; i++) {
-      const a = (i / TICKS) * Math.PI * 2
-      const long = i % 7 === 0
-      dummy.position.set(Math.cos(a) * BEZEL_RADIUS, Math.sin(a) * BEZEL_RADIUS, 0)
-      dummy.rotation.set(0, 0, a)
-      dummy.scale.set(long ? 0.11 : 0.05, 0.006, 0.006)
-      dummy.updateMatrix()
-      mesh.current.setMatrixAt(i, dummy.matrix)
-    }
-    mesh.current.instanceMatrix.needsUpdate = true
-  }, [])
-
-  useFrame((_, delta) => {
-    if (mesh.current) mesh.current.rotation.z += delta * 0.05
-  })
-
-  return (
-    <instancedMesh ref={mesh} args={[undefined, undefined, TICKS]}>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="#9aa0ad" metalness={0.9} roughness={0.3} />
-    </instancedMesh>
-  )
-}
-
-/** Micro satellites tracing the inner orbits. */
-function Satellites() {
-  const group = useRef(null)
-  const items = useMemo(
-    () => [
-      { r: 1.52, speed: 0.55, offset: 0, tilt: [0.35, 0.25, 0.1], size: 0.045, color: PALETTE.periwinkle },
-      { r: 1.2, speed: -0.8, offset: 2.1, tilt: [1.15, 0.55, 0.2], size: 0.035, color: PALETTE.sage },
-      { r: 0.88, speed: 1.1, offset: 4.2, tilt: [0.25, 1.25, 0.45], size: 0.03, color: PALETTE.clay },
-    ],
-    [],
-  )
-  const refs = useRef([])
-
-  useFrame((state) => {
-    const t = state.clock.elapsedTime
-    items.forEach((it, i) => {
-      const el = refs.current[i]
-      if (!el) return
-      const a = t * it.speed + it.offset
-      el.position.set(Math.cos(a) * it.r, Math.sin(a) * it.r, 0)
-    })
-  })
-
-  return (
-    <group ref={group}>
-      {items.map((it, i) => (
-        <group key={i} rotation={it.tilt}>
-          <mesh ref={(el) => (refs.current[i] = el)}>
-            <sphereGeometry args={[it.size, 24, 24]} />
-            <meshStandardMaterial color={it.color} metalness={0.85} roughness={0.22} />
-          </mesh>
-        </group>
-      ))}
-    </group>
-  )
-}
-
-function Gyroscope({ pointer }) {
-  const group = useRef(null)
+function ChromeKnot({ pointer }) {
+  const group = useRef()
+  const mesh = useRef()
 
   useFrame((state, delta) => {
-    const g = group.current
-    if (!g) return
-    const t = state.clock.elapsedTime
+    if (mesh.current) {
+      mesh.current.rotation.x += delta * 0.12
+      mesh.current.rotation.y += delta * 0.16
+    }
 
-    // Damped tilt toward the cursor, layered over a slow idle drift.
-    const targetX = pointer.current.y * -0.45 + Math.sin(t * 0.18) * 0.05
-    const targetY = pointer.current.x * 0.55 + Math.cos(t * 0.14) * 0.06
-    g.rotation.x = THREE.MathUtils.damp(g.rotation.x, targetX, 2.6, delta)
-    g.rotation.y = THREE.MathUtils.damp(g.rotation.y, targetY, 2.6, delta)
-
-    // Breathing scale keeps it feeling alive.
-    const s = 1 + Math.sin(t * 0.5) * 0.012
-    g.scale.setScalar(s)
+    if (group.current) {
+      easing.damp3(
+        group.current.rotation,
+        [-pointer.current.y * 0.55, pointer.current.x * 0.95, pointer.current.x * 0.08],
+        0.35,
+        delta,
+      )
+      easing.damp3(
+        group.current.position,
+        [pointer.current.x * 0.42, pointer.current.y * 0.28, 0],
+        0.45,
+        delta,
+      )
+    }
   })
 
   return (
     <group ref={group}>
-      <Bezel />
-      {RINGS.map((r, i) => (
-        <Ring key={i} {...r} />
-      ))}
-      <Satellites />
-
-      {/* Core: a warm champagne "sun" inside two soft falloff halos */}
-      <mesh>
-        <sphereGeometry args={[0.2, 48, 48]} />
-        <meshStandardMaterial
-          color={PALETTE.champagne}
-          emissive={PALETTE.champagne}
-          emissiveIntensity={0.35}
-          metalness={0.7}
-          roughness={0.18}
-        />
-      </mesh>
-      <mesh>
-        <sphereGeometry args={[0.3, 32, 32]} />
-        <meshBasicMaterial color="#e8c9a0" transparent opacity={0.1} />
-      </mesh>
-      <mesh>
-        <sphereGeometry args={[0.44, 32, 32]} />
-        <meshBasicMaterial color="#e8c9a0" transparent opacity={0.05} />
-      </mesh>
+      <Float speed={1.1} rotationIntensity={0.25} floatIntensity={0.7}>
+        <mesh ref={mesh} castShadow scale={0.86}>
+          <torusKnotGeometry args={[1, 0.33, 320, 48]} />
+          <meshPhysicalMaterial
+            color="#f2f4f8"
+            metalness={1}
+            roughness={0.02}
+            envMapIntensity={2}
+            clearcoat={1}
+            clearcoatRoughness={0.01}
+          />
+        </mesh>
+      </Float>
     </group>
+  )
+}
+
+/**
+ * Studio softbox rig. Chrome only reads as chrome when it has both bright
+ * highlights and darker falloff to reflect, so the environment carries a
+ * mid-tone base with hot rectangular strips over it.
+ */
+function ChromeStudio() {
+  return (
+    <Environment resolution={1024}>
+      {/* Bright "sky" base with a genuinely dark ground plane below it. The
+          hard horizon between the two is what makes chrome read as chrome. */}
+      <color attach="background" args={['#b9bcc6']} />
+      <mesh position={[0, -6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[60, 60]} />
+        <meshBasicMaterial color="#0e0e13" />
+      </mesh>
+
+      {/* Overhead softbox — the primary broad highlight */}
+      <Lightformer
+        form="rect"
+        intensity={9}
+        position={[0, 6, 1]}
+        scale={[14, 6, 1]}
+        target={[0, 0, 0]}
+      />
+      {/* Thin, hot strips read as crisp specular bands on polished metal */}
+      <Lightformer
+        form="rect"
+        intensity={14}
+        position={[-5, 2, 3]}
+        scale={[0.7, 12, 1]}
+        target={[0, 0, 0]}
+      />
+      <Lightformer
+        form="rect"
+        intensity={11}
+        position={[5, -1, 3]}
+        scale={[0.7, 12, 1]}
+        target={[0, 0, 0]}
+      />
+      <Lightformer
+        form="rect"
+        intensity={8}
+        position={[0, 1, -5]}
+        scale={[10, 1.2, 1]}
+        target={[0, 0, 0]}
+      />
+      {/* A single restrained violet accent to echo the headline */}
+      <Lightformer
+        form="circle"
+        intensity={4}
+        position={[4, 3, -3]}
+        scale={4}
+        color="#b7a4ff"
+        target={[0, 0, 0]}
+      />
+    </Environment>
   )
 }
 
 export default function HeroScene() {
-  // Tracked at window level so the sculpture still reacts while the canvas
-  // layer stays pointer-transparent for the text and buttons above it.
-  const pointer = useRef(new THREE.Vector2(0, 0))
+  const pointer = useRef({ x: 0, y: 0 })
 
+  // Tracked on window (not the canvas) because the hero's WebGL layer is
+  // pointer-events:none so it never receives its own pointer events.
   useEffect(() => {
     const onMove = (e) => {
       pointer.current.x = (e.clientX / window.innerWidth) * 2 - 1
-      pointer.current.y = -(e.clientY / window.innerHeight) * 2 + 1
+      pointer.current.y = -((e.clientY / window.innerHeight) * 2 - 1)
     }
-    window.addEventListener('mousemove', onMove)
-    return () => window.removeEventListener('mousemove', onMove)
+    window.addEventListener('pointermove', onMove, { passive: true })
+    return () => window.removeEventListener('pointermove', onMove)
   }, [])
 
   return (
     <Canvas
+      shadows
       dpr={[1, 2]}
       gl={{ antialias: true, alpha: true }}
-      camera={{ position: [0, 0, 6.4], fov: 42 }}
+      camera={{ position: [0, 0, 6], fov: 40 }}
     >
       <Suspense fallback={null}>
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[3, 5, 4]} intensity={1.2} />
+        <ambientLight intensity={0.3} />
+        <directionalLight position={[4, 6, 5]} intensity={2} castShadow />
 
-        <group position={[2.55, 0.05, 0]} scale={0.8}>
-          <Gyroscope pointer={pointer} />
+        {/* Offset into the right-hand negative space, away from the headline */}
+        <group position={[2.35, 0.1, 0]}>
+          <ChromeKnot pointer={pointer} />
         </group>
 
-        {/* A mid-grey surround with bright panels: the contrast between the two
-            is what makes the metal read as polished chrome. */}
-        <Environment resolution={512}>
-          <color attach="background" args={['#b9bec9']} />
-          <Lightformer intensity={3} position={[0, 5, 3]} scale={[10, 4, 1]} />
-          <Lightformer intensity={2} position={[5, 0, 2]} scale={[3, 10, 1]} />
-          <Lightformer
-            intensity={1.6}
-            position={[-5, 1, 2]}
-            scale={[3, 10, 1]}
-            color="#e2e6ff"
+        <ContactShadows
+          position={[2.6, -2.25, 0]}
+          opacity={0.3}
+          scale={10}
+          blur={2.6}
+          far={4.5}
+          color="#7a7a88"
+        />
+
+        <ChromeStudio />
+
+        <EffectComposer disableNormalPass>
+          <Bloom
+            mipmapBlur
+            intensity={0.3}
+            luminanceThreshold={0.98}
+            luminanceSmoothing={0.1}
           />
-          <Lightformer
-            intensity={1.2}
-            position={[0, -4, 2]}
-            scale={[8, 3, 1]}
-            color="#fff2e6"
-          />
-        </Environment>
+        </EffectComposer>
       </Suspense>
     </Canvas>
   )

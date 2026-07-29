@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --canvas: #fbfbf9;
+    --ink: #111111;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--canvas);
+    color: var(--ink);
+    font-feature-settings: 'ss01', 'cv01';
+  }
+
+  ::selection {
+    background: #111111;
+    color: #fbfbf9;
+  }
+}
+
+@layer components {
+  .container-lux {
+    @apply mx-auto w-full max-w-[1400px] px-6 sm:px-10 lg:px-16;
+  }
+
+  /* Small-caps eyebrow label used across sections */
+  .eyebrow {
+    @apply text-[0.7rem] uppercase tracking-[0.28em] text-muted;
+  }
+}
+
+/* Thin, refined scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d9d6cf;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c4c0b6;
+}

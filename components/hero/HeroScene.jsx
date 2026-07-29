@@ -8,68 +8,118 @@ import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import { easing } from 'maath'
 
 /**
- * Procedural micro-imperfection map.
+ * Seamlessly tiling fractal value noise, returned as a 0..1 height field.
  *
- * Perfectly uniform roughness is the clearest tell of a CG render — real
- * machined metal has faint smudges and polish variation. A few octaves of
- * value noise, modulating roughness across the surface, break up the
- * reflections just enough to read as a physical object.
+ * Each octave samples a lattice with wrapping indices at a frequency that is
+ * an exact multiple of the lattice size, so the field tiles without a seam and
+ * can be scrolled indefinitely.
  */
-function useImperfectionMap() {
-  return useMemo(() => {
-    const size = 256
-    const grid = 32
+function createNoiseField(size, grid, octaves) {
+  const lattice = new Float32Array(grid * grid)
+  for (let i = 0; i < lattice.length; i++) lattice[i] = Math.random()
 
-    const lattice = new Float32Array(grid * grid)
-    for (let i = 0; i < lattice.length; i++) lattice[i] = Math.random()
+  const at = (x, y) =>
+    lattice[(((y % grid) + grid) % grid) * grid + (((x % grid) + grid) % grid)]
+  const smooth = (t) => t * t * (3 - 2 * t)
 
-    const at = (x, y) =>
-      lattice[(((y % grid) + grid) % grid) * grid + (((x % grid) + grid) % grid)]
-    const smooth = (t) => t * t * (3 - 2 * t)
+  const field = new Float32Array(size * size)
+  let normalisation = 0
 
-    const data = new Uint8Array(size * size * 4)
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let value = 0
+      let amplitude = 1
+      let frequency = grid / size
+      normalisation = 0
 
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        let value = 0
-        let amplitude = 0.6
-        let frequency = grid / size
+      for (let octave = 0; octave < octaves; octave++) {
+        const fx = x * frequency
+        const fy = y * frequency
+        const x0 = Math.floor(fx)
+        const y0 = Math.floor(fy)
+        const tx = smooth(fx - x0)
+        const ty = smooth(fy - y0)
 
-        for (let octave = 0; octave < 3; octave++) {
-          const fx = x * frequency
-          const fy = y * frequency
-          const x0 = Math.floor(fx)
-          const y0 = Math.floor(fy)
-          const tx = smooth(fx - x0)
-          const ty = smooth(fy - y0)
+        const top = at(x0, y0) + (at(x0 + 1, y0) - at(x0, y0)) * tx
+        const bottom = at(x0, y0 + 1) + (at(x0 + 1, y0 + 1) - at(x0, y0 + 1)) * tx
+        value += (top + (bottom - top) * ty) * amplitude
 
-          const top = at(x0, y0) + (at(x0 + 1, y0) - at(x0, y0)) * tx
-          const bottom = at(x0, y0 + 1) + (at(x0 + 1, y0 + 1) - at(x0, y0 + 1)) * tx
-          value += (top + (bottom - top) * ty) * amplitude
-
-          amplitude *= 0.5
-          frequency *= 2
-        }
-
-        // Keep the map in the upper range so it only ever lightly frosts the
-        // polish rather than turning the metal matte.
-        const level = Math.round(150 + Math.min(1, Math.max(0, value)) * 105)
-        const i = (y * size + x) * 4
-        data[i] = level
-        data[i + 1] = level
-        data[i + 2] = level
-        data[i + 3] = 255
+        normalisation += amplitude
+        amplitude *= 0.5
+        frequency *= 2
       }
-    }
 
-    const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat)
-    texture.wrapS = THREE.RepeatWrapping
-    texture.wrapT = THREE.RepeatWrapping
-    texture.repeat.set(4, 2)
-    texture.anisotropy = 4
-    texture.needsUpdate = true
-    return texture
-  }, [])
+      field[y * size + x] = value / normalisation
+    }
+  }
+
+  return field
+}
+
+/**
+ * Micro-imperfection map. Perfectly uniform roughness is the clearest tell of
+ * a CG render — real machined metal has faint smudges and polish variation.
+ * Values sit in the upper range so this only lightly frosts the polish rather
+ * than turning the metal matte.
+ */
+function createImperfectionMap() {
+  const size = 256
+  const field = createNoiseField(size, 32, 3)
+  const data = new Uint8Array(size * size * 4)
+
+  for (let i = 0; i < field.length; i++) {
+    const level = Math.round(150 + field[i] * 105)
+    data[i * 4] = level
+    data[i * 4 + 1] = level
+    data[i * 4 + 2] = level
+    data[i * 4 + 3] = 255
+  }
+
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat)
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.repeat.set(4, 2)
+  texture.anisotropy = 4
+  texture.needsUpdate = true
+  return texture
+}
+
+/**
+ * Normal map derived from the slope of a noise height field.
+ *
+ * Scrolling one of these across a mirror-like surface makes the reflections
+ * themselves swell and swirl, which is what sells "flowing liquid" — far more
+ * convincingly than displacing the geometry, and without disturbing the clean
+ * silhouette. Keep the lattice coarse: fine detail reads as hammered metal,
+ * broad swells read as water.
+ */
+function createFlowNormalMap({ size = 256, grid = 8, octaves = 2, strength = 2 }) {
+  const field = createNoiseField(size, grid, octaves)
+  const height = (x, y) =>
+    field[(((y % size) + size) % size) * size + (((x % size) + size) % size)]
+
+  const data = new Uint8Array(size * size * 4)
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = (height(x - 1, y) - height(x + 1, y)) * strength
+      const dy = (height(x, y - 1) - height(x, y + 1)) * strength
+
+      const length = Math.hypot(dx, dy, 1)
+      const i = (y * size + x) * 4
+      data[i] = Math.round(((dx / length) * 0.5 + 0.5) * 255)
+      data[i + 1] = Math.round(((dy / length) * 0.5 + 0.5) * 255)
+      data[i + 2] = Math.round((1 / length * 0.5 + 0.5) * 255)
+      data[i + 3] = 255
+    }
+  }
+
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat)
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.anisotropy = 4
+  texture.needsUpdate = true
+  return texture
 }
 
 /**
@@ -84,10 +134,50 @@ function MetalKnot({ pointer }) {
   const lean = useRef()
   const drift = useRef()
   const mesh = useRef()
-  const imperfection = useImperfectionMap()
+
+  // Two layers at different scales, scrolled in opposing directions. Where the
+  // two sets of swells cross they interfere, which is what stops the flow from
+  // looking like a texture sliding in one direction.
+  const { imperfection, flowA, flowB } = useMemo(
+    () => ({
+      imperfection: createImperfectionMap(),
+      flowA: createFlowNormalMap({ grid: 8, octaves: 2, strength: 2 }),
+      flowB: createFlowNormalMap({ grid: 12, octaves: 3, strength: 1.6 }),
+    }),
+    [],
+  )
+
+  // Restrained on purpose: push these up and the metal starts to look hammered
+  // or dented instead of liquid.
+  const normalScale = useMemo(() => new THREE.Vector2(0.45, 0.45), [])
+  const clearcoatNormalScale = useMemo(() => new THREE.Vector2(0.32, 0.32), [])
+
+  useEffect(() => {
+    flowA.repeat.set(2, 1)
+    flowB.repeat.set(3, 1.5)
+  }, [flowA, flowB])
+
+  useEffect(
+    () => () => {
+      imperfection.dispose()
+      flowA.dispose()
+      flowB.dispose()
+    },
+    [imperfection, flowA, flowB],
+  )
 
   useFrame((state, delta) => {
     const t = state.clock.elapsedTime
+
+    // Opposing, slightly mismatched speeds keep the surface churning.
+    flowA.offset.x += delta * 0.035
+    flowA.offset.y += delta * 0.018
+    flowB.offset.x -= delta * 0.026
+    flowB.offset.y += delta * 0.031
+
+    // Drifting the polish variation too, so the sheen migrates with the flow.
+    imperfection.offset.x += delta * 0.012
+    imperfection.offset.y -= delta * 0.008
 
     if (mesh.current) {
       // Incommensurate frequencies keep the rhythm from ever looping audibly.
@@ -134,8 +224,12 @@ function MetalKnot({ pointer }) {
             roughness={0.14}
             roughnessMap={imperfection}
             envMapIntensity={1.35}
+            normalMap={flowA}
+            normalScale={normalScale}
             clearcoat={0.85}
             clearcoatRoughness={0.06}
+            clearcoatNormalMap={flowB}
+            clearcoatNormalScale={clearcoatNormalScale}
           />
         </mesh>
       </group>

@@ -1,5 +1,7 @@
-import { Inter, Fraunces } from 'next/font/google'
+import { Inter, Fraunces, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
+import SmoothScroll from '@/components/providers/SmoothScroll'
+import Cursor from '@/components/ui/Cursor'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -14,6 +16,12 @@ const fraunces = Fraunces({
   axes: ['opsz', 'SOFT', 'WONK'],
 })
 
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+})
+
 export const metadata = {
   title: 'Peiqi — Interactive Media & Brand Design',
   description:
@@ -22,8 +30,14 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
-      <body className="font-sans antialiased">{children}</body>
+    <html
+      lang="en"
+      className={`${inter.variable} ${fraunces.variable} ${mono.variable}`}
+    >
+      <body className="grain font-sans antialiased">
+        <Cursor />
+        <SmoothScroll>{children}</SmoothScroll>
+      </body>
     </html>
   )
 }

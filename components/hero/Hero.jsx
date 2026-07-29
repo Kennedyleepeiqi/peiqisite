@@ -91,6 +91,7 @@ export default function Hero() {
             <MagneticButton
               as="a"
               href="#work"
+              data-cursor="View"
               className="group gap-2 rounded-full bg-ink px-7 py-4 text-sm font-medium text-canvas"
             >
               View selected work
@@ -100,6 +101,7 @@ export default function Hero() {
             <MagneticButton
               as="a"
               href="#contact"
+              data-cursor="Say hi"
               className="rounded-full border border-line px-7 py-4 text-sm font-medium text-ink transition-colors duration-500 hover:border-ink"
             >
               Start a project

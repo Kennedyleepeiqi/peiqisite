@@ -4,25 +4,45 @@
 
 @layer base {
   :root {
-    --canvas: #fbfbf9;
-    --ink: #111111;
+    --canvas: #f4f4f2;
+    --ink: #0a0a0a;
   }
 
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    scroll-behavior: smooth;
+  }
+
+  /* Lenis smooth scroll */
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+  .lenis.lenis-stopped {
+    overflow: hidden;
   }
 
   body {
     background-color: var(--canvas);
     color: var(--ink);
     font-feature-settings: 'ss01', 'cv01';
+    overflow-x: hidden;
   }
 
   ::selection {
-    background: #111111;
-    color: #fbfbf9;
+    background: #0a0a0a;
+    color: #f4f4f2;
+  }
+
+  /* Hide native cursor once the custom cursor is active (desktop only) */
+  @media (hover: hover) and (pointer: fine) {
+    body.custom-cursor,
+    body.custom-cursor * {
+      cursor: none;
+    }
   }
 }
 
@@ -34,6 +54,54 @@
   /* Small-caps eyebrow label used across sections */
   .eyebrow {
     @apply text-[0.7rem] uppercase tracking-[0.28em] text-muted;
+  }
+
+  /* Thin technical grid backdrop */
+  .grid-lines {
+    background-image: linear-gradient(
+        to right,
+        rgba(10, 10, 10, 0.045) 1px,
+        transparent 1px
+      ),
+      linear-gradient(to bottom, rgba(10, 10, 10, 0.045) 1px, transparent 1px);
+    background-size: 80px 80px;
+  }
+
+  /* Iridescent text used for high-tech accents */
+  .holo-text {
+    background: linear-gradient(
+      100deg,
+      #0a0a0a 0%,
+      #5b5bff 25%,
+      #a855f7 45%,
+      #0a0a0a 70%,
+      #0a0a0a 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* Fine film grain overlay for a tactile, premium finish */
+.grain::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
   }
 }
 

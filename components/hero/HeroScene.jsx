@@ -5,12 +5,24 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { Environment, Lightformer } from '@react-three/drei'
 import * as THREE from 'three'
 
+/**
+ * Low-chroma "planetary" palette. Kept desaturated and paired with high
+ * metalness so each orbit reads as anodised metal rather than plastic.
+ */
+const PALETTE = {
+  pewter: '#a9b0bf',
+  periwinkle: '#98a1d4',
+  sage: '#a3bfb0',
+  clay: '#cdaa9d',
+  champagne: '#e4c9a1',
+}
+
 /* Nested rings, each tumbling on its own axis at its own rate. */
 const RINGS = [
-  { radius: 1.85, tube: 0.008, tilt: [Math.PI / 2, 0, 0], speed: 0.18, color: '#b9bdc9' },
-  { radius: 1.52, tube: 0.018, tilt: [0.35, 0.25, 0.1], speed: -0.3, color: '#e9ebf0' },
-  { radius: 1.2, tube: 0.028, tilt: [1.15, 0.55, 0.2], speed: 0.44, color: '#f2f3f7' },
-  { radius: 0.88, tube: 0.042, tilt: [0.25, 1.25, 0.45], speed: -0.62, color: '#dfe2ff' },
+  { radius: 1.85, tube: 0.008, tilt: [Math.PI / 2, 0, 0], speed: 0.18, color: PALETTE.pewter },
+  { radius: 1.52, tube: 0.018, tilt: [0.35, 0.25, 0.1], speed: -0.3, color: PALETTE.periwinkle },
+  { radius: 1.2, tube: 0.028, tilt: [1.15, 0.55, 0.2], speed: 0.44, color: PALETTE.sage },
+  { radius: 0.88, tube: 0.042, tilt: [0.25, 1.25, 0.45], speed: -0.62, color: PALETTE.clay },
 ]
 
 const TICKS = 84
@@ -67,9 +79,9 @@ function Satellites() {
   const group = useRef(null)
   const items = useMemo(
     () => [
-      { r: 1.52, speed: 0.55, offset: 0, tilt: [0.35, 0.25, 0.1], size: 0.045, accent: false },
-      { r: 1.2, speed: -0.8, offset: 2.1, tilt: [1.15, 0.55, 0.2], size: 0.035, accent: true },
-      { r: 0.88, speed: 1.1, offset: 4.2, tilt: [0.25, 1.25, 0.45], size: 0.03, accent: false },
+      { r: 1.52, speed: 0.55, offset: 0, tilt: [0.35, 0.25, 0.1], size: 0.045, color: PALETTE.periwinkle },
+      { r: 1.2, speed: -0.8, offset: 2.1, tilt: [1.15, 0.55, 0.2], size: 0.035, color: PALETTE.sage },
+      { r: 0.88, speed: 1.1, offset: 4.2, tilt: [0.25, 1.25, 0.45], size: 0.03, color: PALETTE.clay },
     ],
     [],
   )
@@ -91,17 +103,7 @@ function Satellites() {
         <group key={i} rotation={it.tilt}>
           <mesh ref={(el) => (refs.current[i] = el)}>
             <sphereGeometry args={[it.size, 24, 24]} />
-            {it.accent ? (
-              <meshStandardMaterial
-                color="#5b5bff"
-                emissive="#5b5bff"
-                emissiveIntensity={0.9}
-                roughness={0.25}
-                metalness={0.4}
-              />
-            ) : (
-              <meshStandardMaterial color="#ffffff" metalness={1} roughness={0.05} />
-            )}
+            <meshStandardMaterial color={it.color} metalness={0.85} roughness={0.22} />
           </mesh>
         </group>
       ))}
@@ -136,14 +138,24 @@ function Gyroscope({ pointer }) {
       ))}
       <Satellites />
 
-      {/* Core: a polished bearing wrapped in a faint accent halo */}
+      {/* Core: a warm champagne "sun" inside two soft falloff halos */}
       <mesh>
         <sphereGeometry args={[0.2, 48, 48]} />
-        <meshStandardMaterial color="#fafbfd" metalness={1} roughness={0.03} />
+        <meshStandardMaterial
+          color={PALETTE.champagne}
+          emissive={PALETTE.champagne}
+          emissiveIntensity={0.35}
+          metalness={0.7}
+          roughness={0.18}
+        />
       </mesh>
       <mesh>
-        <sphereGeometry args={[0.34, 32, 32]} />
-        <meshBasicMaterial color="#5b5bff" transparent opacity={0.07} />
+        <sphereGeometry args={[0.3, 32, 32]} />
+        <meshBasicMaterial color="#e8c9a0" transparent opacity={0.1} />
+      </mesh>
+      <mesh>
+        <sphereGeometry args={[0.44, 32, 32]} />
+        <meshBasicMaterial color="#e8c9a0" transparent opacity={0.05} />
       </mesh>
     </group>
   )

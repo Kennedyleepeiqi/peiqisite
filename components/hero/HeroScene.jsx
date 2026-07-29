@@ -43,12 +43,12 @@ function ChromeKnot({ pointer }) {
         <mesh ref={mesh} castShadow scale={0.86}>
           <torusKnotGeometry args={[1, 0.33, 320, 48]} />
           <meshPhysicalMaterial
-            color="#f2f4f8"
+            color="#40424a"
             metalness={1}
-            roughness={0.02}
-            envMapIntensity={2}
+            roughness={0.035}
+            envMapIntensity={1.6}
             clearcoat={1}
-            clearcoatRoughness={0.01}
+            clearcoatRoughness={0.02}
           />
         </mesh>
       </Float>
@@ -105,10 +105,10 @@ function ChromeStudio() {
       {/* A single restrained violet accent to echo the headline */}
       <Lightformer
         form="circle"
-        intensity={4}
+        intensity={2}
         position={[4, 3, -3]}
         scale={4}
-        color="#b7a4ff"
+        color="#cfc6ee"
         target={[0, 0, 0]}
       />
     </Environment>

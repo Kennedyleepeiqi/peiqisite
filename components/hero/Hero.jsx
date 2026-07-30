@@ -2,8 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import { motion } from 'framer-motion'
-import { ArrowUpRight } from 'lucide-react'
-import MagneticButton from '@/components/ui/MagneticButton'
+import ActionButton from '@/components/ui/ActionButton'
 
 // The WebGL scene is client-only and lazy-loaded so it never blocks first paint.
 const HeroScene = dynamic(() => import('@/components/hero/HeroScene'), {
@@ -65,7 +64,7 @@ export default function Hero() {
             <span className="block overflow-hidden">
               <motion.span
                 variants={line}
-                className="text-sheen-purple block w-fit pr-[0.08em] italic"
+                className="text-sheen-metal block w-fit pr-[0.08em] italic"
               >
                 luxury
               </motion.span>
@@ -89,24 +88,25 @@ export default function Hero() {
             variants={fade}
             className="mt-12 flex flex-wrap items-center gap-4"
           >
-            <MagneticButton
+            <ActionButton
               as="a"
               href="#work"
+              icon
               data-cursor="View"
-              className="group gap-2 rounded-full bg-ink px-7 py-4 text-sm font-medium text-canvas"
+              className="px-7 py-4 text-sm font-medium"
             >
               View selected work
-              <ArrowUpRight className="h-4 w-4 transition-transform duration-500 ease-lux group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </MagneticButton>
+            </ActionButton>
 
-            <MagneticButton
+            <ActionButton
               as="a"
               href="#contact"
+              variant="outline"
               data-cursor="Say hi"
-              className="rounded-full border border-line px-7 py-4 text-sm font-medium text-ink transition-colors duration-500 hover:border-ink"
+              className="px-7 py-4 text-sm font-medium"
             >
               Start a project
-            </MagneticButton>
+            </ActionButton>
           </motion.div>
         </motion.div>
       </div>

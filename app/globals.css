@@ -86,20 +86,29 @@
 }
 
 @layer utilities {
-  /* Deep purple sheen that sweeps across the word on an endless loop.
-     The gradient's first and last stops match so the tile wraps seamlessly. */
-  .text-sheen-purple {
+  /* Brushed-grey sheen that sweeps across the word on an endless loop.
+     The gradient's first and last stops match so the tile wraps seamlessly.
+     Highlights stop well short of white: the italic serif has hairline strokes
+     that would disappear into the near-white canvas if the bands ran brighter,
+     so the metal is read from the dark-to-light contrast instead. */
+  .text-sheen-metal {
     background-image: linear-gradient(
       100deg,
-      #1a0330 0%,
-      #3d0a63 14%,
-      #6d28d9 27%,
-      #a855f7 36%,
-      #6d28d9 45%,
-      #3d0a63 60%,
-      #1a0330 74%,
-      #3d0a63 88%,
-      #1a0330 100%
+      #1b1d21 0%,
+      #2e3138 6%,
+      #6f747f 12%,
+      #9aa0ab 16%,
+      #5c606a 21%,
+      #26282e 28%,
+      #1b1d21 36%,
+      #31343b 44%,
+      #7b808b 52%,
+      #a4aab5 56%,
+      #666b75 61%,
+      #2b2e34 70%,
+      #1b1d21 80%,
+      #24262c 90%,
+      #1b1d21 100%
     );
     background-size: 200% 100%;
     background-repeat: repeat-x;

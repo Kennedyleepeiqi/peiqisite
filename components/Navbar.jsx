@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import MagneticButton from '@/components/ui/MagneticButton'
+import ActionButton from '@/components/ui/ActionButton'
 
 const links = [
   { label: 'About', href: '#about' },
@@ -49,14 +49,15 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <MagneticButton
+        <ActionButton
           as="a"
           href="#contact"
+          variant="outline"
           data-cursor="Say hi"
-          className="rounded-full border border-line bg-surface/60 px-5 py-2.5 text-sm text-ink backdrop-blur transition-colors duration-500 hover:border-ink"
+          className="bg-surface/60 px-5 py-2.5 text-sm backdrop-blur"
         >
           Contact
-        </MagneticButton>
+        </ActionButton>
       </div>
     </motion.header>
   )

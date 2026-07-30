@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import SectionHeading from '@/components/ui/SectionHeading'
 import Reveal from '@/components/ui/Reveal'
-import MagneticButton from '@/components/ui/MagneticButton'
+import ActionButton from '@/components/ui/ActionButton'
 
 const socials = [
   { label: 'Instagram', href: '#' },
@@ -114,16 +114,16 @@ export default function Contact() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-6">
-                  <MagneticButton
+                  <ActionButton
                     as="button"
                     type="submit"
+                    icon
                     disabled={status === 'sending'}
                     data-cursor="Send"
-                    className="group gap-2 rounded-full bg-ink px-8 py-4 text-sm font-medium text-canvas disabled:opacity-50"
+                    className="px-8 py-4 text-sm font-medium disabled:opacity-50"
                   >
                     {status === 'sending' ? 'Sending…' : 'Send enquiry'}
-                    <ArrowUpRight className="h-4 w-4 transition-transform duration-500 ease-lux group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                  </MagneticButton>
+                  </ActionButton>
 
                   {feedback && (
                     <p

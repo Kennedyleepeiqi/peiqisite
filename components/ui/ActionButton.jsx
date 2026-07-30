@@ -5,30 +5,33 @@ import { ArrowUpRight } from 'lucide-react'
 /**
  * The site's primary call to action.
  *
- * Hovering runs three things off a single `group` state, deliberately on the
- * same easing so they read as one gesture rather than three effects: a fill
- * rises from the bottom of the pill, the label rolls up and is replaced by an
- * inverted copy of itself, and a specular band crosses the surface once the
- * fill has arrived. Nothing here tracks the cursor — the interaction is the
- * same wherever on the button you happen to enter it.
+ * Both variants are cut from the same metal as the object in the hero: the
+ * solid one is its shaded body, the outline one the bright side of the same
+ * reflection. Hovering doesn't swap anything out — the surface simply turns
+ * into the light, a specular band crosses it, and the pill lifts. The whole
+ * gesture is one easing on three layers, and nothing tracks the cursor.
  */
 
 const VARIANTS = {
-  // Ink pill that turns to brushed steel. The fill is a gradient rather than a
-  // flat pale tone so it doesn't land on the same colour as the outline variant
-  // beside it, and so the specular pass has something to glance off.
   solid: {
-    shell: 'bg-ink',
-    fill: 'bg-[linear-gradient(100deg,#dcdfe5_0%,#f4f5f8_24%,#c9ccd4_48%,#eef0f3_72%,#d5d8df_100%)]',
-    rest: 'text-canvas',
-    swap: 'text-ink',
+    shell:
+      'bg-[linear-gradient(180deg,#35383f_0%,#212328_58%,#17191d_100%)] text-canvas shadow-[0_10px_24px_-14px_rgba(17,19,23,0.55)] hover:shadow-[0_20px_38px_-16px_rgba(17,19,23,0.6)]',
+    // The phase of the metal it turns to: same greys, caught side-on.
+    turn: 'bg-[linear-gradient(100deg,#22242a_0%,#3a3d45_28%,#5f636c_46%,#3f424a_64%,#24262c_100%)]',
+    sheen:
+      'bg-[linear-gradient(105deg,transparent_38%,rgba(255,255,255,0.3)_50%,transparent_62%)]',
+    // Light along the top edge, shade along the bottom — the bevel is what
+    // stops a dark pill from reading as a flat rectangle of colour.
+    bevel:
+      'shadow-[inset_0_1px_0_rgba(255,255,255,0.16),inset_0_-1px_0_rgba(0,0,0,0.55)]',
   },
-  // Hairline outline that floods with ink.
   outline: {
-    shell: 'border border-line hover:border-ink',
-    fill: 'bg-ink',
-    rest: 'text-ink',
-    swap: 'text-canvas',
+    shell:
+      'border border-line text-ink hover:border-[#c3c8d1] hover:shadow-[0_16px_32px_-18px_rgba(17,19,23,0.45)]',
+    turn: 'bg-[linear-gradient(100deg,#dfe2e8_0%,#f4f5f8_24%,#cbcfd7_50%,#eaecf0_74%,#dcdfe5_100%)]',
+    sheen:
+      'bg-[linear-gradient(105deg,transparent_40%,rgba(255,255,255,0.75)_50%,transparent_60%)]',
+    bevel: 'shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]',
   },
 }
 
@@ -43,45 +46,38 @@ export default function ActionButton({
   const Tag = as
   const tokens = VARIANTS[variant] ?? VARIANTS.solid
 
-  const label = (tone) => (
-    <span className={`flex items-center justify-center gap-2 whitespace-nowrap ${tone}`}>
-      {children}
-      {icon && <ArrowUpRight className="h-4 w-4" />}
-    </span>
-  )
-
   return (
     <Tag
-      // `isolate` so the layers below can sit behind the label with a negative
+      // `isolate` so the surface layers can sit behind the label on a negative
       // z-index while still covering this element's own background.
-      className={`group relative isolate inline-flex items-center justify-center overflow-hidden rounded-full transition-[transform,border-color,box-shadow] duration-500 ease-lux hover:-translate-y-0.5 hover:shadow-[0_14px_34px_-16px_rgba(17,17,17,0.45)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:pointer-events-none ${tokens.shell} ${className}`}
+      className={`group relative isolate inline-flex items-center justify-center overflow-hidden rounded-full transition-[transform,border-color,box-shadow] duration-500 ease-lux hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:pointer-events-none ${tokens.shell} ${className}`}
       {...props}
     >
       <span
         aria-hidden="true"
-        className={`absolute inset-0 -z-10 translate-y-full transition-transform duration-[650ms] ease-lux group-hover:translate-y-0 ${tokens.fill}`}
+        className={`absolute inset-0 -z-10 opacity-0 transition-opacity duration-700 ease-lux group-hover:opacity-100 ${tokens.turn}`}
       />
 
-      {/* Delayed so it glances off the risen fill rather than the resting
-          surface, which is what makes it read as polish on metal. */}
+      {/* Delayed so the highlight glances off metal that has already turned,
+          rather than off the resting surface. */}
       <span
         aria-hidden="true"
-        className="absolute inset-0 -z-10 -translate-x-[130%] bg-[linear-gradient(105deg,transparent_38%,rgba(255,255,255,0.45)_50%,transparent_62%)] transition-transform duration-[1100ms] delay-150 ease-lux group-hover:translate-x-[130%]"
+        className={`absolute inset-0 -z-10 -translate-x-[130%] transition-transform duration-1000 delay-100 ease-lux group-hover:translate-x-[130%] ${tokens.sheen}`}
       />
 
-      {/* Two copies of the label: the resting one leaves through the top as its
-          inverse arrives from below, so the colour never has to cross-fade. */}
-      <span className="relative block overflow-hidden">
-        <span className="block transition-transform duration-[650ms] ease-lux group-hover:-translate-y-full">
-          {label(tokens.rest)}
-        </span>
-        <span
-          aria-hidden="true"
-          className="absolute inset-0 block translate-y-full transition-transform duration-[650ms] ease-lux group-hover:translate-y-0"
-        >
-          {label(tokens.swap)}
-        </span>
+      <span className="relative flex items-center justify-center gap-2 whitespace-nowrap">
+        {children}
+        {icon && (
+          <ArrowUpRight className="h-4 w-4 transition-transform duration-500 ease-lux group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+        )}
       </span>
+
+      {/* Painted last: an inset shadow on the button itself would be buried by
+          the surface layers above it. */}
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-0 rounded-full ${tokens.bevel}`}
+      />
     </Tag>
   )
 }

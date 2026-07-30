@@ -44,12 +44,29 @@
     body.custom-cursor * {
       cursor: none;
     }
+
+    /* Text entry is the exception. Typing into a field with no caret cursor and
+       no I-beam feels broken, so the native cursor comes back over inputs. */
+    body.custom-cursor input,
+    body.custom-cursor textarea,
+    body.custom-cursor select,
+    body.custom-cursor [contenteditable='true'] {
+      cursor: auto;
+    }
   }
 }
 
 @layer components {
   .container-lux {
     @apply mx-auto w-full max-w-[1400px] px-6 sm:px-10 lg:px-16;
+  }
+
+  /* The nav dock is fixed to the right edge from lg upward, so the container
+     owes it a gutter — otherwise right-hand body copy runs under the plate. */
+  @media (min-width: 1024px) {
+    .container-lux {
+      padding-right: 5.5rem;
+    }
   }
 
   /* Small-caps eyebrow label used across sections */
@@ -68,21 +85,6 @@
     background-size: 80px 80px;
   }
 
-  /* Iridescent text used for high-tech accents */
-  .holo-text {
-    background: linear-gradient(
-      100deg,
-      #0a0a0a 0%,
-      #5b5bff 25%,
-      #a855f7 45%,
-      #0a0a0a 70%,
-      #0a0a0a 100%
-    );
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
 }
 
 @layer utilities {
@@ -163,6 +165,159 @@
 
 .marquee:hover .marquee-track {
   animation-play-state: paused;
+}
+
+/* ─── Liquid chrome navigation deck ──────────────────────────────────────
+   Each dot is a tiny machined pill. GSAP owns its width/height/x/y, so
+   everything here is purely surface: two stacked gradients for the metal,
+   an inset rim for the bevel, and two pseudo elements for the highlights.
+
+   Declared inside @layer components so the positioning utilities on the
+   element still win — an unlayered rule would outrank them. */
+
+@layer components {
+  /* Frosted capsule the whole deck sits on.
+     Two deliberate choices here, both learned the hard way:
+     1. The fill is a neutral grey tint, not white. White glass over a near-white
+        canvas is invisible, and a backdrop blur has nothing to bite on over
+        flat colour — the panel has to carry its own contrast. Grey also works
+        both ways: it darkens the light sections and lightens the dark
+        Services block.
+     2. No mask. A masked element becomes a backdrop root in Chromium, which
+        kills its own backdrop-filter — so fading the ends would have cost the
+        blur. The capsule keeps a crisp rim instead, which is what a pill
+        should have anyway. */
+  .dock-plate {
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: -12px;
+    bottom: -12px;
+    border-radius: 999px;
+    pointer-events: none;
+    /* Denser at the top, thinning downward: reads as a glass tube lit from
+       above rather than a flat slab. */
+    background: linear-gradient(
+      to bottom,
+      rgba(120, 126, 138, 0.17) 0%,
+      rgba(120, 126, 138, 0.12) 34%,
+      rgba(120, 126, 138, 0.08) 68%,
+      rgba(120, 126, 138, 0.05) 100%
+    );
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    backdrop-filter: blur(14px) saturate(150%);
+    box-shadow:
+      /* Lit top edge, then a glass rim that reads white on the dark section
+         and an ink hairline that reads on the light ones. */ inset 0 1px 0
+        rgba(255, 255, 255, 0.8),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.35),
+      0 0 0 1px rgba(17, 19, 23, 0.055),
+      0 20px 40px -26px rgba(17, 19, 23, 0.55);
+  }
+
+  .dock-dot {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: 999px;
+    background-image:
+      /* Cross-section shading. Bright on the light side, shadow gathered
+         low-right, then a rim bounce off the surface it sits on — this is
+         what makes the pill read as a cylinder rather than a sticker. */
+      linear-gradient(
+        94deg,
+        rgba(255, 255, 255, 0.92) 0%,
+        rgba(255, 255, 255, 0.28) 20%,
+        rgba(0, 0, 0, 0.12) 56%,
+        rgba(0, 0, 0, 0.26) 80%,
+        rgba(255, 255, 255, 0.5) 100%
+      ),
+      /* Polished bands down the length. Real chrome on a white set is mostly
+         bright silver interrupted by one tight dark horizon line — the earlier
+         version spent half its length in shadow, which is why it read as a
+         smudge instead of metal at this size. */
+        linear-gradient(
+          169deg,
+          #ffffff 0%,
+          #f4f6f8 8%,
+          #d3d8de 19%,
+          #a8aeb8 30%,
+          #6c727c 41%,
+          #383c44 49%,
+          #5f646d 55%,
+          #9aa1ab 63%,
+          #cdd2d9 73%,
+          #f1f3f6 84%,
+          #d8dce2 92%,
+          #aeb4bd 100%
+        );
+    box-shadow:
+      inset 0 0.5px 0 rgba(255, 255, 255, 1),
+      inset 0 -0.5px 0 rgba(0, 0, 0, 0.32),
+      /* Tight contact shadow only. The old 14px blur haloed every dot and read
+         as dirt on the canvas. */ 0 1px 1.5px rgba(17, 19, 23, 0.16),
+      0 2px 5px -2px rgba(17, 19, 23, 0.2),
+      /* Half-pixel ring keeps the pill legible on the dark Services section
+         without glowing on the light ones. */ 0 0 0 0.5px
+        rgba(255, 255, 255, 0.22);
+  }
+
+  /* Specular pin-light, held high and off-centre so the bead reads as a sphere
+     catching a key light. Sized in percentages so it scales with the dot. */
+  .dock-dot::before {
+    content: '';
+    position: absolute;
+    left: 22%;
+    top: 13%;
+    width: 40%;
+    height: 30%;
+    border-radius: 999px;
+    background: radial-gradient(
+      closest-side,
+      rgba(255, 255, 255, 0.9),
+      rgba(255, 255, 255, 0)
+    );
+  }
+
+  /* Diagonal reflection wipe. The travel occupies less than half the cycle and
+     each dot gets its own duration and delay, so the deck catches light at
+     irregular intervals rather than pulsing in unison. */
+  .dock-dot::after {
+    content: '';
+    position: absolute;
+    inset: -30% -8%;
+    background: linear-gradient(
+      118deg,
+      transparent 36%,
+      rgba(255, 255, 255, 0.18) 45%,
+      rgba(255, 255, 255, 0.72) 50%,
+      rgba(255, 255, 255, 0.18) 55%,
+      transparent 64%
+    );
+    opacity: 0;
+    will-change: transform, opacity;
+    animation: dock-shimmer var(--shimmer-duration, 6s)
+      cubic-bezier(0.45, 0, 0.2, 1) var(--shimmer-delay, 0s) infinite;
+  }
+}
+
+@keyframes dock-shimmer {
+  0%,
+  4% {
+    transform: translate3d(0, -175%, 0);
+    opacity: 0;
+  }
+  13% {
+    opacity: 1;
+  }
+  32% {
+    opacity: 1;
+  }
+  44%,
+  100% {
+    transform: translate3d(0, 175%, 0);
+    opacity: 0;
+  }
 }
 
 /* Fine film grain overlay for a tactile, premium finish */

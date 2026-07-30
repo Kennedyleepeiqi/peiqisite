@@ -1,29 +1,44 @@
 'use client'
 
-import { useEffect } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import Lenis from 'lenis'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 gsap.registerPlugin(ScrollTrigger)
 
+const LenisContext = createContext(null)
+
+/**
+ * Anything that needs to move the page — the nav dock, anchor links — must go
+ * through this instance. A second scroll engine (or a raw window.scrollTo)
+ * would fight Lenis for the scroll position and stutter.
+ */
+export function useLenis() {
+  return useContext(LenisContext)
+}
+
 /**
  * Buttery inertia scrolling via Lenis, kept in perfect sync with GSAP's
  * ScrollTrigger so cinematic scroll animations stay frame-accurate.
  */
 export default function SmoothScroll({ children }) {
+  const [lenis, setLenis] = useState(null)
+
   useEffect(() => {
-    const lenis = new Lenis({
+    const instance = new Lenis({
       duration: 1.15,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       smoothWheel: true,
     })
 
-    lenis.on('scroll', ScrollTrigger.update)
+    instance.on('scroll', ScrollTrigger.update)
 
-    const raf = (time) => lenis.raf(time * 1000)
+    const raf = (time) => instance.raf(time * 1000)
     gsap.ticker.add(raf)
     gsap.ticker.lagSmoothing(0)
+
+    setLenis(instance)
 
     // Let anchor links defer to Lenis for smooth in-page navigation.
     const handleAnchor = (e) => {
@@ -34,7 +49,7 @@ export default function SmoothScroll({ children }) {
         const el = document.querySelector(id)
         if (el) {
           e.preventDefault()
-          lenis.scrollTo(el, { offset: 0 })
+          instance.scrollTo(el, { offset: 0 })
         }
       }
     }
@@ -43,9 +58,10 @@ export default function SmoothScroll({ children }) {
     return () => {
       document.removeEventListener('click', handleAnchor)
       gsap.ticker.remove(raf)
-      lenis.destroy()
+      instance.destroy()
+      setLenis(null)
     }
   }, [])
 
-  return children
+  return <LenisContext.Provider value={lenis}>{children}</LenisContext.Provider>
 }

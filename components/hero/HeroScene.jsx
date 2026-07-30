@@ -453,7 +453,11 @@ function MetalKnot({ pointer, stir }) {
       <group ref={lean}>
         <group ref={drift}>
           <mesh ref={mesh} castShadow scale={0.78}>
-            <torusKnotGeometry args={[1, 0.3, 512, 64]} />
+            {/* 256×32 rather than 512×64: a quarter of the triangles for no
+                visible difference at this on-screen size. The ripple
+                displacement is computed per-vertex, so this is the floor —
+                going lower starts to facet the wavefront. */}
+            <torusKnotGeometry args={[1, 0.3, 256, 32]} />
             <primitive object={material} attach="material" />
 
             {/* Invisible stand-in for hit testing. It inherits this mesh's
@@ -487,7 +491,7 @@ function MetalKnot({ pointer, stir }) {
   )
 }
 
-export default function HeroScene() {
+export default function HeroScene({ active = true }) {
   const pointer = useRef({ x: 0, y: 0 })
   const stir = useRef({ x: 0, y: 0 })
 
@@ -513,6 +517,9 @@ export default function HeroScene() {
   return (
     <Canvas
       shadows
+      // Stops drawing once the hero has scrolled away, so it isn't competing
+      // for the GPU with the card scene further down the page.
+      frameloop={active ? 'always' : 'demand'}
       dpr={[1, 2]}
       gl={{ antialias: true, alpha: true }}
       camera={{ position: [0, 0, 6], fov: 40 }}
@@ -521,12 +528,12 @@ export default function HeroScene() {
         <directionalLight position={[4, 6, 5]} intensity={1.2} castShadow />
 
         {/* Offset into the right-hand negative space, away from the headline */}
-        <group position={[2.12, 0.1, 0]}>
+        <group position={[1.82, 0.1, 0]}>
           <MetalKnot pointer={pointer} stir={stir} />
         </group>
 
         <ContactShadows
-          position={[2.12, -2.25, 0]}
+          position={[1.82, -2.25, 0]}
           opacity={0.35}
           scale={10}
           blur={2.4}
@@ -536,8 +543,15 @@ export default function HeroScene() {
 
         {/* A real photographic HDRI. Metal only looks photoreal when it has a
             genuinely complex world to mirror — synthetic softboxes reflect as
-            flat, cartoonish bands. */}
-        <Environment preset="warehouse" environmentIntensity={1.1} />
+            flat, cartoonish bands.
+
+            Served from public/ rather than via preset="warehouse": that preset
+            pulls the same file from a third-party CDN at runtime, which would
+            put someone else's uptime in front of our first impression. */}
+        <Environment
+          files="/hdri/empty_warehouse_01_1k.hdr"
+          environmentIntensity={1.1}
+        />
 
         <EffectComposer disableNormalPass>
           <Bloom

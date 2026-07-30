@@ -12,7 +12,6 @@ export default {
         ink: '#111111',
         muted: '#6b6b6b',
         line: '#e8e6e1',
-        accent: '#5b5bff',
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],

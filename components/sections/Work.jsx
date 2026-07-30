@@ -1,22 +1,22 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import Image from 'next/image'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight, ImagePlus } from 'lucide-react'
+import SectionHeading from '@/components/ui/SectionHeading'
+import Reveal from '@/components/ui/Reveal'
+import ActionButton from '@/components/ui/ActionButton'
+import { caseStudy, pieces } from '@/content/site'
 
 gsap.registerPlugin(ScrollTrigger)
 
-const projects = [
-  { id: 1, title: 'Aurelia', category: 'Rebranding', year: '2025', tint: 'from-[#e9e4ff] to-[#cdd6ff]' },
-  { id: 2, title: 'Nord & Co.', category: 'Visual Identity', year: '2025', tint: 'from-[#f3efe6] to-[#e7dcc9]' },
-  { id: 3, title: 'Halcyon', category: 'Web / WebGL', year: '2024', tint: 'from-[#dff5ef] to-[#c4eadf]' },
-  { id: 4, title: 'Monolith', category: 'Campaign', year: '2024', tint: 'from-[#ececec] to-[#d7d7d7]' },
-  { id: 5, title: 'Lumen', category: 'Interactive Media', year: '2024', tint: 'from-[#ffe9f0] to-[#ffd0e0]' },
-]
+const CARD = 'h-[58vh] shrink-0 sm:h-[70vh]'
 
 export default function Work() {
   const section = useRef(null)
+  const stage = useRef(null)
   const track = useRef(null)
 
   useEffect(() => {
@@ -24,14 +24,21 @@ export default function Work() {
       const mm = gsap.matchMedia()
       mm.add('(min-width: 768px)', () => {
         const el = track.current
-        const distance = el.scrollWidth - window.innerWidth + 64
+        // Measured on every refresh rather than once at setup. A single baked
+        // measurement is taken before the rail has finished laying out, and any
+        // overshoot becomes dead scroll with the last card dragged off-screen.
+        const distance = () =>
+          Math.max(0, el.scrollWidth - window.innerWidth + 64)
+
+        // The pin is on the rail alone, not the whole section — the case study
+        // above it has to scroll past normally before the gallery takes over.
         const tween = gsap.to(el, {
-          x: -distance,
+          x: () => -distance(),
           ease: 'none',
           scrollTrigger: {
-            trigger: section.current,
+            trigger: stage.current,
             start: 'top top',
-            end: () => `+=${distance}`,
+            end: () => `+=${distance()}`,
             pin: true,
             scrub: 1,
             invalidateOnRefresh: true,
@@ -48,73 +55,212 @@ export default function Work() {
     <section
       id="work"
       ref={section}
-      className="relative overflow-hidden bg-canvas py-28 sm:py-0"
+      className="relative overflow-hidden bg-canvas py-28 sm:py-40"
     >
-      <div className="container-lux flex items-end justify-between pt-4 sm:pt-28">
-        <div>
-          <div className="flex items-center gap-4">
-            <span className="font-mono text-xs text-muted">03</span>
-            <span className="eyebrow">Selected Works</span>
-          </div>
-          <h2 className="mt-6 font-serif text-[clamp(1.9rem,4.5vw,3.4rem)] font-light leading-[1.1] tracking-tight text-ink">
-            A curated archive.
+      <div className="container-lux">
+        <SectionHeading index="03" label="Selected Work" />
+
+        <Reveal>
+          <h2 className="mt-14 max-w-3xl font-serif text-[clamp(1.9rem,4.5vw,3.4rem)] font-light leading-[1.1] tracking-tight text-ink">
+            One brand, carried across every surface.
           </h2>
+        </Reveal>
+
+        {/* Featured case */}
+        <div className="mt-20 grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-14">
+          <Reveal className="lg:col-span-5">
+            <span className="eyebrow">Featured case</span>
+            <h3 className="mt-5 font-serif text-[clamp(2rem,4vw,3rem)] font-light leading-[1.05] tracking-tight text-ink">
+              {caseStudy.client}
+            </h3>
+
+            <dl className="mt-8 border-t border-line text-sm">
+              {[
+                ['Sector', caseStudy.sector],
+                ['Location', caseStudy.location],
+                ['Year', caseStudy.year],
+              ].map(([term, value]) => (
+                <div
+                  key={term}
+                  className="flex justify-between border-b border-line py-3"
+                >
+                  <dt className="text-muted">{term}</dt>
+                  <dd className="text-ink">{value}</dd>
+                </div>
+              ))}
+            </dl>
+
+            <p className="mt-8 text-base leading-relaxed text-ink/80">
+              {caseStudy.summary}
+            </p>
+            <p className="mt-5 text-sm leading-relaxed text-muted">
+              {caseStudy.detail}
+            </p>
+
+            <div className="mt-8 flex flex-wrap gap-2">
+              {caseStudy.scope.map((s) => (
+                <span
+                  key={s}
+                  className="rounded-full border border-line px-4 py-1.5 text-xs text-muted"
+                >
+                  {s}
+                </span>
+              ))}
+            </div>
+
+            <div className="mt-10">
+              <ActionButton
+                as="a"
+                href={caseStudy.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="outline"
+                icon
+                data-cursor="Visit"
+                className="px-6 py-3.5 text-sm font-medium"
+              >
+                View the live site
+              </ActionButton>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.12} className="lg:col-span-7">
+            {/* Browser chrome, so the screenshot reads as a shipped website
+                rather than a flat image. */}
+            <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_50px_90px_-56px_rgba(17,19,23,0.55)]">
+              <div className="flex items-center gap-2 border-b border-line px-4 py-3">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="h-2.5 w-2.5 rounded-full bg-line" />
+                ))}
+                <span className="ml-3 truncate rounded-full bg-canvas px-3 py-1 font-mono text-[0.62rem] text-muted">
+                  nepmarine.org
+                </span>
+              </div>
+              <div className="relative aspect-[16/10]">
+                <Image
+                  src="/work/nepmarine-site.jpg"
+                  alt="Nepmarine Agency homepage, showing the hero headline over a container vessel"
+                  fill
+                  sizes="(min-width: 1024px) 55vw, 100vw"
+                  className="object-cover object-top"
+                />
+              </div>
+            </div>
+
+            <div className="mt-8 grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-3">
+              {caseStudy.results.map((r) => (
+                <div key={r.label} className="bg-surface p-5">
+                  <div className="font-serif text-2xl font-light text-ink sm:text-3xl">
+                    {r.value}
+                  </div>
+                  <div className="mt-2 text-[0.68rem] leading-snug text-muted">
+                    {r.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Reveal>
         </div>
-        <span className="hidden text-xs uppercase tracking-[0.2em] text-muted sm:block">
-          Drag / Scroll →
-        </span>
+
+        <div className="mt-28 flex items-baseline justify-between border-t border-line pt-8">
+          <span className="eyebrow">Every piece</span>
+          <span className="hidden text-xs uppercase tracking-[0.2em] text-muted sm:block">
+            Scroll →
+          </span>
+        </div>
       </div>
 
-      <div className="mt-14 sm:flex sm:min-h-[100svh] sm:items-center">
+      {/* Pinned gallery rail */}
+      <div
+        ref={stage}
+        className="mt-12 sm:flex sm:min-h-[100svh] sm:items-center"
+      >
         <div
           ref={track}
           className="flex gap-6 overflow-x-auto px-6 pb-6 sm:overflow-visible sm:px-16 sm:pb-0"
         >
-          {projects.map((p) => (
-            <article
-              key={p.id}
-              data-cursor="Open"
-              className="group relative h-[62vh] w-[80vw] shrink-0 overflow-hidden rounded-3xl border border-line sm:h-[68vh] sm:w-[46vw] lg:w-[38vw]"
-            >
+          {pieces.map((p) =>
+            p.kind === 'sample' ? (
+              // Waiting slots are built to the same spec as a finished card,
+              // so a rail that isn't full yet still reads as designed.
               <div
-                className={`absolute inset-0 bg-gradient-to-br ${p.tint} transition-transform duration-[1.2s] ease-lux group-hover:scale-105`}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
-
-              <div className="relative flex h-full flex-col justify-between p-8">
-                <div className="flex items-start justify-between">
-                  <span className="rounded-full bg-white/60 px-4 py-1.5 text-xs backdrop-blur">
-                    {p.category}
-                  </span>
-                  <span className="font-mono text-xs text-ink/60">{p.year}</span>
-                </div>
-
-                <div className="translate-y-2 transition-transform duration-700 ease-lux group-hover:translate-y-0">
-                  <div className="flex items-end justify-between">
-                    <h3 className="font-serif text-4xl font-light text-ink sm:text-6xl">
-                      {p.title}
-                    </h3>
-                    <span className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-ink text-canvas opacity-0 transition-opacity duration-500 group-hover:opacity-100">
-                      <ArrowUpRight className="h-5 w-5" />
+                key={p.id}
+                className={`${CARD} flex w-[66vw] flex-col overflow-hidden rounded-3xl border border-line bg-surface sm:w-[32vw] lg:w-[23vw]`}
+              >
+                <div className="flex flex-1 bg-[linear-gradient(160deg,#f6f6f4_0%,#ececeb_100%)] p-7">
+                  <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-ink/15">
+                    <ImagePlus className="h-6 w-6 text-ink/25" strokeWidth={1.25} />
+                    <span className="mt-4 text-[0.62rem] uppercase tracking-[0.24em] text-muted">
+                      Sample slot
                     </span>
                   </div>
-                  <div className="mt-4 max-h-0 overflow-hidden text-sm text-ink/70 transition-all duration-700 ease-lux group-hover:max-h-24">
-                    A confident identity rollout balancing restraint and impact —
-                    crafted end-to-end from concept to launch.
+                </div>
+                <div className="flex items-center justify-between gap-4 border-t border-line px-6 py-5">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm text-ink">{p.label}</div>
+                    <div className="truncate text-xs text-muted">{p.note}</div>
                   </div>
+                  <span className="shrink-0 font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted">
+                    {p.category}
+                  </span>
                 </div>
               </div>
-            </article>
-          ))}
+            ) : (
+              <article
+                key={p.id}
+                data-cursor="View"
+                className={`${CARD} group flex w-[80vw] flex-col overflow-hidden rounded-3xl border border-line bg-surface sm:w-[52vw] lg:w-[40vw]`}
+              >
+                {p.fit === 'cover' ? (
+                  // Anchored to the top left, not the centre. A screenshot is
+                  // wider than this card, and a centred crop eats into the
+                  // headline and logo — the two things worth showing.
+                  <div className="relative flex-1 overflow-hidden">
+                    <Image
+                      src={p.src}
+                      alt={`${p.client} — ${p.note}`}
+                      fill
+                      sizes="(min-width: 1024px) 40vw, 80vw"
+                      className="object-cover object-left-top origin-top-left transition-transform duration-[1.2s] ease-lux group-hover:scale-[1.04]"
+                    />
+                  </div>
+                ) : (
+                  // Flat artwork sits on a soft field rather than filling the
+                  // card, so a namecard still reads as a namecard.
+                  <div className="relative flex-1 bg-[linear-gradient(160deg,#f6f6f4_0%,#ececeb_100%)] p-8 sm:p-12">
+                    <div className="relative h-full w-full">
+                      <Image
+                        src={p.src}
+                        alt={`${p.client} — ${p.note}`}
+                        fill
+                        sizes="(min-width: 1024px) 40vw, 80vw"
+                        className="object-contain drop-shadow-[0_24px_44px_rgba(17,19,23,0.18)] transition-transform duration-[1.2s] ease-lux group-hover:scale-[1.03]"
+                      />
+                    </div>
+                  </div>
+                )}
 
-          {/* Tail CTA card */}
+                <div className="flex items-center justify-between gap-4 border-t border-line px-6 py-5">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm text-ink">{p.label}</div>
+                    <div className="truncate text-xs text-muted">{p.note}</div>
+                  </div>
+                  <span className="shrink-0 font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted">
+                    {p.client}
+                  </span>
+                </div>
+              </article>
+            ),
+          )}
+
           <a
             href="#contact"
             data-cursor="Let's talk"
-            className="group flex h-[62vh] w-[80vw] shrink-0 flex-col items-center justify-center rounded-3xl border border-dashed border-ink/30 sm:h-[68vh] sm:w-[36vw] lg:w-[28vw]"
+            className={`${CARD} group flex w-[80vw] flex-col items-center justify-center rounded-3xl border border-dashed border-ink/30 sm:w-[34vw] lg:w-[26vw]`}
           >
-            <span className="font-serif text-3xl font-light italic text-ink transition-transform duration-500 group-hover:-translate-y-1">
-              Your project next?
+            <span className="flex items-center gap-3 font-serif text-3xl font-light italic text-ink transition-transform duration-500 group-hover:-translate-y-1">
+              Your brand next?
+              <ArrowUpRight className="h-6 w-6 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
             </span>
             <span className="mt-4 text-xs uppercase tracking-[0.2em] text-muted">
               Start an enquiry

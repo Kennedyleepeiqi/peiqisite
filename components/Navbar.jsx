@@ -33,7 +33,7 @@ export default function Navbar() {
     >
       <div className="container-lux flex items-center justify-between py-5">
         <a href="#home" className="font-serif text-lg tracking-tight text-ink">
-          Peiqi<span className="text-accent">.</span>
+          Peiqi<span className="text-muted">.</span>
         </a>
 
         <nav className="hidden items-center gap-10 md:flex">

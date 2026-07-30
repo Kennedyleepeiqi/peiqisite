@@ -24,6 +24,19 @@ const VARIANTS = {
     // stops a dark pill from reading as a flat rectangle of colour.
     bevel:
       'shadow-[inset_0_1px_0_rgba(255,255,255,0.16),inset_0_-1px_0_rgba(0,0,0,0.55)]',
+    ring: 'focus-visible:ring-ink/40 focus-visible:ring-offset-canvas',
+  },
+  // The same metal read against the dark sections, where a graphite pill would
+  // sink into the background.
+  light: {
+    shell:
+      'bg-[linear-gradient(180deg,#fbfbf9_0%,#eceef1_58%,#d9dce3_100%)] text-ink shadow-[0_12px_26px_-14px_rgba(0,0,0,0.7)] hover:shadow-[0_22px_40px_-16px_rgba(0,0,0,0.75)]',
+    turn: 'bg-[linear-gradient(100deg,#e4e7ec_0%,#ffffff_26%,#c9cdd6_50%,#f2f3f6_74%,#dee1e7_100%)]',
+    sheen:
+      'bg-[linear-gradient(105deg,transparent_40%,rgba(255,255,255,0.85)_50%,transparent_60%)]',
+    bevel:
+      'shadow-[inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-1px_0_rgba(0,0,0,0.14)]',
+    ring: 'focus-visible:ring-canvas/60 focus-visible:ring-offset-ink',
   },
   outline: {
     shell:
@@ -32,6 +45,7 @@ const VARIANTS = {
     sheen:
       'bg-[linear-gradient(105deg,transparent_40%,rgba(255,255,255,0.75)_50%,transparent_60%)]',
     bevel: 'shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]',
+    ring: 'focus-visible:ring-ink/40 focus-visible:ring-offset-canvas',
   },
 }
 
@@ -50,7 +64,7 @@ export default function ActionButton({
     <Tag
       // `isolate` so the surface layers can sit behind the label on a negative
       // z-index while still covering this element's own background.
-      className={`group relative isolate inline-flex items-center justify-center overflow-hidden rounded-full transition-[transform,border-color,box-shadow] duration-500 ease-lux hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:pointer-events-none ${tokens.shell} ${className}`}
+      className={`group relative isolate inline-flex items-center justify-center overflow-hidden rounded-full transition-[transform,border-color,box-shadow] duration-500 ease-lux hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-offset-2 disabled:pointer-events-none ${tokens.ring} ${tokens.shell} ${className}`}
       {...props}
     >
       <span

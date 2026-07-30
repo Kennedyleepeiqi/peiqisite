@@ -11,6 +11,7 @@ export default function Cursor() {
   const ring = useRef(null)
   const [label, setLabel] = useState('')
   const [hovering, setHovering] = useState(false)
+  const [overText, setOverText] = useState(false)
 
   useEffect(() => {
     if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
@@ -27,6 +28,14 @@ export default function Cursor() {
       if (dot.current) {
         dot.current.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0)`
       }
+
+      // Step aside over text entry: the native I-beam is doing a job the
+      // custom cursor can't, so showing both just adds noise.
+      setOverText(
+        !!e.target.closest(
+          'input, textarea, select, [contenteditable="true"]',
+        ),
+      )
 
       const target = e.target.closest('a, button, [data-cursor]')
       if (target) {
@@ -61,14 +70,16 @@ export default function Cursor() {
     <>
       <div
         ref={dot}
-        className="pointer-events-none fixed left-0 top-0 z-[60] -ml-1 -mt-1 h-2 w-2 rounded-full bg-ink mix-blend-difference"
+        className={`pointer-events-none fixed left-0 top-0 z-[60] -ml-1 -mt-1 h-2 w-2 rounded-full bg-ink mix-blend-difference transition-opacity duration-200 ${
+          overText ? 'opacity-0' : 'opacity-100'
+        }`}
         style={{ willChange: 'transform' }}
       />
       <div
         ref={ring}
         className={`pointer-events-none fixed left-0 top-0 z-[60] flex items-center justify-center rounded-full border border-ink/40 text-[0.6rem] uppercase tracking-[0.2em] text-ink mix-blend-difference transition-[width,height,opacity] duration-300 ease-lux ${
-          hovering ? 'h-16 w-16 border-transparent bg-ink/5' : 'h-9 w-9'
-        }`}
+          overText ? 'opacity-0' : 'opacity-100'
+        } ${hovering ? 'h-16 w-16 border-transparent bg-ink/5' : 'h-9 w-9'}`}
         style={{ marginLeft: hovering ? -32 : -18, marginTop: hovering ? -32 : -18, willChange: 'transform' }}
       >
         {label}

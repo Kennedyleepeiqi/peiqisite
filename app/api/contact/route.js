@@ -3,7 +3,7 @@ import { Resend } from 'resend'
 
 export async function POST(request) {
   try {
-    const { name, email, message } = await request.json()
+    const { name, email, message, projectType } = await request.json()
 
     if (!name || !email || !message) {
       return NextResponse.json(
@@ -31,8 +31,10 @@ export async function POST(request) {
       from: process.env.CONTACT_FROM_EMAIL || 'Peiqi Portfolio <onboarding@resend.dev>',
       to,
       replyTo: email,
-      subject: `New enquiry from ${name}`,
-      text: `Name: ${name}\nEmail: ${email}\n\n${message}`,
+      subject: projectType
+        ? `New enquiry from ${name} — ${projectType}`
+        : `New enquiry from ${name}`,
+      text: `Name: ${name}\nEmail: ${email}\nLooking for: ${projectType || 'Not specified'}\n\n${message}`,
     })
 
     return NextResponse.json({ ok: true })

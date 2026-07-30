@@ -3,6 +3,8 @@
 import dynamic from 'next/dynamic'
 import { motion } from 'framer-motion'
 import ActionButton from '@/components/ui/ActionButton'
+import useOnScreen from '@/lib/useOnScreen'
+import { positioning } from '@/content/site'
 
 // The WebGL scene is client-only and lazy-loaded so it never blocks first paint.
 const HeroScene = dynamic(() => import('@/components/hero/HeroScene'), {
@@ -28,7 +30,17 @@ const fade = {
   show: { opacity: 1, y: 0, transition: { duration: 0.9, ease } },
 }
 
+// Each headline line is clipped so it can be revealed from below, but a 0.95
+// line box is shorter than the serif's descenders, so the tail of a "g" was
+// being sliced off. The padding drops the clip edge below the baseline and the
+// matching negative margin takes the space back, so the reveal still works and
+// the line rhythm is unchanged.
+const clip = 'block overflow-hidden pb-[0.22em] -mb-[0.22em]'
+
 export default function Hero() {
+  const [first, accent, last] = positioning.headline
+  const { ref: sceneHost, visible } = useOnScreen()
+
   return (
     <section
       id="home"
@@ -36,8 +48,8 @@ export default function Hero() {
     >
       {/* Interactive 3D backdrop. This layer accepts pointer events so the
           object can be touched directly; the overlays above it opt out. */}
-      <div className="absolute inset-0 z-0">
-        <HeroScene />
+      <div ref={sceneHost} className="absolute inset-0 z-0">
+        <HeroScene active={visible} />
       </div>
 
       {/* Soft left-to-right wash keeps the headline crisp while letting the
@@ -52,26 +64,26 @@ export default function Hero() {
           className="pointer-events-auto max-w-4xl"
         >
           <motion.p variants={fade} className="eyebrow mb-8">
-            Interactive Media · Digital Arts · Brand Identity
+            {positioning.eyebrow}
           </motion.p>
 
           <h1 className="font-serif text-[clamp(2.75rem,9vw,7.5rem)] font-light leading-[0.95] tracking-tightest text-ink">
-            <span className="block overflow-hidden">
+            <span className={clip}>
               <motion.span variants={line} className="block">
-                Designing
+                {first}
               </motion.span>
             </span>
-            <span className="block overflow-hidden">
+            <span className={clip}>
               <motion.span
                 variants={line}
                 className="text-sheen-metal block w-fit pr-[0.08em] italic"
               >
-                luxury
+                {accent}
               </motion.span>
             </span>
-            <span className="block overflow-hidden">
+            <span className={clip}>
               <motion.span variants={line} className="block">
-                into every detail.
+                {last}
               </motion.span>
             </span>
           </h1>
@@ -80,8 +92,7 @@ export default function Hero() {
             variants={fade}
             className="mt-10 max-w-xl text-base leading-relaxed text-muted sm:text-lg"
           >
-            I&apos;m Peiqi — a creator elevating brand identities through
-            refined visual systems and immersive, interactive experiences.
+            {positioning.intro}
           </motion.p>
 
           <motion.div
@@ -116,10 +127,9 @@ export default function Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.6, duration: 1 }}
-        className="container-lux pointer-events-none absolute bottom-8 left-0 right-0 z-10 flex items-center justify-between text-[0.7rem] uppercase tracking-[0.28em] text-muted"
+        className="container-lux pointer-events-none absolute bottom-8 left-0 right-0 z-10 flex items-center justify-end text-[0.7rem] uppercase tracking-[0.28em] text-muted"
       >
-        <span>Scroll</span>
-        <span>Based in — Everywhere</span>
+        <span>Based in Singapore</span>
       </motion.div>
     </section>
   )

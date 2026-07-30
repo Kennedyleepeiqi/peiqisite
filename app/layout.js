@@ -23,9 +23,28 @@ const mono = JetBrains_Mono({
 })
 
 export const metadata = {
-  title: 'Peiqi — Interactive Media & Brand Design',
+  title: 'Peiqi — Brand Strategy, Visual Identity & UX/UI Web Design in Singapore',
   description:
-    'Portfolio of Peiqi, a creator specialising in interactive media, digital arts, and luxury brand identity.',
+    'Peiqi lifts how brands are seen and builds the digital presence that sells — strategy, logo and identity design, print and NFC collateral, UX/UI, websites, e-commerce and campaigns for companies, product businesses and founders.',
+  keywords: [
+    'brand strategy Singapore',
+    'logo design Singapore',
+    'visual identity',
+    'corporate rebranding',
+    'namecard and stationery design',
+    'NFC business card design',
+    'UX UI design Singapore',
+    'website design Singapore',
+    'e-commerce design',
+    'portfolio website design',
+  ],
+  openGraph: {
+    title: 'Peiqi — Distinctive design for every touchpoint',
+    description:
+      'Brand strategy, visual identity, UX/UI and digital design for companies, product businesses and founders.',
+    type: 'website',
+    locale: 'en_SG',
+  },
 }
 
 export default function RootLayout({ children }) {

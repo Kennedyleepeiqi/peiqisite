@@ -27,19 +27,20 @@ export default function Footer() {
           <div>
             <p className="eyebrow !text-canvas/50">Peiqi Studio</p>
             <p className="mt-4 max-w-sm text-sm text-canvas/60">
-              Independent design practice crafting luxury brand identities and
-              interactive experiences.
+              Brand strategy, visual identity, UX/UI and web design for
+              companies, product businesses and founders — built to lift how you
+              are seen and to bring in work.
             </p>
           </div>
           <div className="text-sm text-canvas/60 md:text-right">
-            <p>Available for select projects</p>
+            <p>Currently taking on new projects</p>
             <p className="mt-1">Local time — {time || '—'}</p>
           </div>
         </div>
 
         <div className="mt-16 overflow-hidden">
           <h2 className="select-none whitespace-nowrap font-serif text-[clamp(3rem,16vw,14rem)] font-light leading-none tracking-tightest text-canvas/95">
-            Peiqi<span className="text-accent">.</span>
+            Peiqi<span className="text-canvas/45">.</span>
           </h2>
         </div>
 

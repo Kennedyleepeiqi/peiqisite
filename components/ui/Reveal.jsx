@@ -20,8 +20,8 @@ export default function Reveal({ children, delay = 0, y = 28, className = '' }) 
 }
 
 const word = {
-  hidden: { y: '110%' },
-  show: { y: '0%', transition: { duration: 0.8, ease } },
+  hidden: { y: '115%' },
+  show: { y: '0%', transition: { duration: 1.05, ease } },
 }
 
 /**
@@ -32,21 +32,44 @@ const word = {
  * parked below its own overflow-hidden mask never registers as in view and
  * would deadlock. The wrapper is observed instead and the state cascades to
  * the words through variants.
+ *
+ * `accentFrom` marks a trailing run of words for different styling — negative
+ * values count back from the end, as with Array.slice.
  */
-export function RevealWords({ text, className = '', wordClassName = '' }) {
+export function RevealWords({
+  text,
+  className = '',
+  wordClassName = '',
+  accentClassName = '',
+  accentFrom = null,
+  delay = 0,
+}) {
   const words = text.split(' ')
+  const accentAt =
+    accentFrom === null
+      ? words.length
+      : accentFrom < 0
+        ? words.length + accentFrom
+        : accentFrom
+
   return (
     <motion.span
       className={className}
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, margin: '-15% 0px' }}
-      transition={{ staggerChildren: 0.045 }}
+      transition={{ staggerChildren: 0.055, delayChildren: delay }}
     >
       {words.map((w, i) => (
-        <span key={i} className="inline-block overflow-hidden align-bottom">
+        // The mask's padding box is pushed below the baseline and pulled back
+        // by an equal negative margin: descenders clear the clip without the
+        // line box growing. Tight leading alone would shear the j and y.
+        <span
+          key={i}
+          className="inline-block overflow-hidden pb-[0.22em] -mb-[0.22em] align-bottom"
+        >
           <motion.span
-            className={`inline-block ${wordClassName}`}
+            className={`inline-block ${wordClassName} ${i >= accentAt ? accentClassName : ''}`}
             variants={word}
           >
             {w}

@@ -5,7 +5,6 @@ import * as THREE from 'three'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Environment, ContactShadows } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
-import { easing } from 'maath'
 
 /**
  * Seamlessly tiling fractal value noise, returned as a 0..1 height field.
@@ -122,18 +121,142 @@ function createFlowNormalMap({ size = 256, grid = 8, octaves = 2, strength = 2 }
   return texture
 }
 
+const RIPPLE_COUNT = 4
+const RIPPLE_LIFETIME = 5
+
+/**
+ * Polished metal, with ripples that spread from wherever the cursor touches it.
+ *
+ * The wave is evaluated per vertex as a height field, and what gets handed to
+ * the fragment stage is its *gradient* — perturbing the surface normal makes
+ * the reflections bend, which on a mirror-like material is far more convincing
+ * (and far cheaper) than physically displacing the geometry.
+ */
+function createMetalMaterial({ imperfection, flowA, flowB }) {
+  const material = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color('#3c3e45'),
+    metalness: 1,
+    roughness: 0.14,
+    roughnessMap: imperfection,
+    envMapIntensity: 1.35,
+    normalMap: flowA,
+    clearcoat: 0.85,
+    clearcoatRoughness: 0.06,
+    clearcoatNormalMap: flowB,
+  })
+
+  // Restrained on purpose: push these up and the metal starts to look hammered
+  // or dented instead of liquid.
+  material.normalScale.set(0.45, 0.45)
+  material.clearcoatNormalScale.set(0.32, 0.32)
+
+  const uniforms = {
+    uTime: { value: 0 },
+    uImpactPos: {
+      value: Array.from({ length: RIPPLE_COUNT }, () => new THREE.Vector3(1e3, 1e3, 1e3)),
+    },
+    uImpactTime: { value: new Array(RIPPLE_COUNT).fill(-1e3) },
+    uImpactStrength: { value: new Array(RIPPLE_COUNT).fill(0) },
+    uRippleAmp: { value: 0.05 },
+    uRippleFreq: { value: 9 },
+    uRippleSpeed: { value: 4.5 },
+    uRippleFalloff: { value: 1.6 },
+    uRippleDecay: { value: 1.15 },
+  }
+
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms)
+
+    shader.vertexShader =
+      `
+      #define RIPPLE_COUNT ${RIPPLE_COUNT}
+      uniform float uTime;
+      uniform vec3 uImpactPos[RIPPLE_COUNT];
+      uniform float uImpactTime[RIPPLE_COUNT];
+      uniform float uImpactStrength[RIPPLE_COUNT];
+      uniform float uRippleAmp;
+      uniform float uRippleFreq;
+      uniform float uRippleSpeed;
+      uniform float uRippleFalloff;
+      uniform float uRippleDecay;
+      varying vec3 vRippleGrad;
+    ` + shader.vertexShader
+
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `
+      #include <begin_vertex>
+
+      vec3 rippleGrad = vec3(0.0);
+
+      for (int i = 0; i < RIPPLE_COUNT; i++) {
+        float age = uTime - uImpactTime[i];
+        // step() rather than an early-out: branching on a loop counter is
+        // poorly supported on older GL ES targets.
+        float gate = step(0.0, age) * step(age, ${RIPPLE_LIFETIME}.0) * uImpactStrength[i];
+
+        vec3 rel = position - uImpactPos[i];
+        float d = length(rel);
+
+        // Height h = envelope * sin(phase); we need dh/dd to bend the normal.
+        float envelope = exp(-d * uRippleFalloff) * exp(-age * uRippleDecay);
+        float phase = d * uRippleFreq - age * uRippleSpeed;
+        float dhdd = envelope * (uRippleFreq * cos(phase) - uRippleFalloff * sin(phase));
+
+        rippleGrad += (rel / max(d, 1e-4)) * dhdd * uRippleAmp * gate;
+      }
+
+      vRippleGrad = normalMatrix * rippleGrad;
+      `,
+    )
+
+    shader.fragmentShader = 'varying vec3 vRippleGrad;\n' + shader.fragmentShader
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <normal_fragment_maps>',
+      `
+      #include <normal_fragment_maps>
+      normal = normalize(normal - vRippleGrad);
+      `,
+    )
+  }
+
+  return { material, uniforms }
+}
+
+// Tuned for roughly 5% overshoot settling in ~0.6s: enough to feel like the
+// object carries weight, restrained enough that it never reads as bouncy.
+const SPRING_STIFFNESS = 90
+const SPRING_DAMPING = 13
+
+function stepSpring(spring, target, delta) {
+  const acceleration =
+    (target - spring.value) * SPRING_STIFFNESS - spring.velocity * SPRING_DAMPING
+  spring.velocity += acceleration * delta
+  spring.value += spring.velocity * delta
+  return spring.value
+}
+
 /**
  * Dark polished metal solid, drifting as though suspended in water.
  *
  * Motion is split across three nested transforms so none of them fight each
- * other: the outer group lags behind the cursor, the middle group traces a
+ * other: the outer group springs toward the cursor, the middle group traces a
  * slow figure-eight, and the mesh itself turns at a rate that eases in and out
  * rather than at a fixed speed — a constant spin is what reads as mechanical.
  */
-function MetalKnot({ pointer }) {
+function MetalKnot({ pointer, stir }) {
   const lean = useRef()
   const drift = useRef()
   const mesh = useRef()
+
+  const elapsed = useRef(0)
+  const ripple = useRef({ next: 0, lastSpawn: -1 })
+  const springs = useRef({
+    rotX: { value: 0, velocity: 0 },
+    rotY: { value: 0, velocity: 0 },
+    posX: { value: 0, velocity: 0 },
+    posY: { value: 0, velocity: 0 },
+  })
 
   // Two layers at different scales, scrolled in opposing directions. Where the
   // two sets of swells cross they interfere, which is what stops the flow from
@@ -147,10 +270,10 @@ function MetalKnot({ pointer }) {
     [],
   )
 
-  // Restrained on purpose: push these up and the metal starts to look hammered
-  // or dented instead of liquid.
-  const normalScale = useMemo(() => new THREE.Vector2(0.45, 0.45), [])
-  const clearcoatNormalScale = useMemo(() => new THREE.Vector2(0.32, 0.32), [])
+  const { material, uniforms } = useMemo(
+    () => createMetalMaterial({ imperfection, flowA, flowB }),
+    [imperfection, flowA, flowB],
+  )
 
   useEffect(() => {
     flowA.repeat.set(2, 1)
@@ -162,22 +285,64 @@ function MetalKnot({ pointer }) {
       imperfection.dispose()
       flowA.dispose()
       flowB.dispose()
+      material.dispose()
     },
-    [imperfection, flowA, flowB],
+    [imperfection, flowA, flowB, material],
   )
 
-  useFrame((state, delta) => {
+  /**
+   * Records a ripple origin in the mesh's own geometry space, which is the
+   * space the vertex shader compares against.
+   */
+  const spawnRipple = (event, strength) => {
+    if (!mesh.current) return
+
+    const time = elapsed.current
+    // Throttled so a fast sweep leaves a wake rather than a solid smear.
+    if (strength <= 1 && time - ripple.current.lastSpawn < 0.1) return
+
+    const local = mesh.current.worldToLocal(event.point.clone())
+    const slot = ripple.current.next % RIPPLE_COUNT
+
+    uniforms.uImpactPos.value[slot].copy(local)
+    uniforms.uImpactTime.value[slot] = time
+    uniforms.uImpactStrength.value[slot] = strength
+
+    ripple.current.next = slot + 1
+    ripple.current.lastSpawn = time
+  }
+
+  useFrame((state, rawDelta) => {
+    // Clamp so a backgrounded tab can't hand us a huge step and blow up the
+    // spring integration.
+    const delta = Math.min(rawDelta, 1 / 30)
     const t = state.clock.elapsedTime
 
-    // Opposing, slightly mismatched speeds keep the surface churning.
-    flowA.offset.x += delta * 0.035
-    flowA.offset.y += delta * 0.018
-    flowB.offset.x -= delta * 0.026
-    flowB.offset.y += delta * 0.031
+    elapsed.current = t
+    uniforms.uTime.value = t
+
+    // Cursor velocity stirs the surface: the flow leans the way you swept, and
+    // churns harder the faster you moved.
+    const sx = stir.current.x
+    const sy = stir.current.y
+    const agitation = Math.min(1, Math.hypot(sx, sy) * 2.2)
+
+    flowA.offset.x += delta * (0.035 + sx * 0.85)
+    flowA.offset.y += delta * (0.018 - sy * 0.55)
+    flowB.offset.x -= delta * (0.026 - sx * 0.6)
+    flowB.offset.y += delta * (0.031 + sy * 0.7)
 
     // Drifting the polish variation too, so the sheen migrates with the flow.
     imperfection.offset.x += delta * 0.012
     imperfection.offset.y -= delta * 0.008
+
+    material.normalScale.setScalar(0.45 + agitation * 0.18)
+    material.clearcoatNormalScale.setScalar(0.32 + agitation * 0.12)
+
+    // Bleed the stir off so the surface settles when the cursor stops.
+    const decay = Math.exp(-delta * 2.6)
+    stir.current.x *= decay
+    stir.current.y *= decay
 
     if (mesh.current) {
       // Incommensurate frequencies keep the rhythm from ever looping audibly.
@@ -195,21 +360,14 @@ function MetalKnot({ pointer }) {
       drift.current.rotation.z = Math.sin(t * 0.13 + 2.1) * 0.1
     }
 
-    // Generous smoothing time so the object trails the cursor languidly
-    // instead of snapping to it.
+    // Springs rather than exponential damping, so it overshoots very slightly
+    // and settles back — the difference between "eased" and "has mass".
     if (lean.current) {
-      easing.damp3(
-        lean.current.rotation,
-        [-pointer.current.y * 0.42, pointer.current.x * 0.72, 0],
-        0.9,
-        delta,
-      )
-      easing.damp3(
-        lean.current.position,
-        [pointer.current.x * 0.36, pointer.current.y * 0.24, 0],
-        0.85,
-        delta,
-      )
+      const s = springs.current
+      lean.current.rotation.x = stepSpring(s.rotX, -pointer.current.y * 0.42, delta)
+      lean.current.rotation.y = stepSpring(s.rotY, pointer.current.x * 0.72, delta)
+      lean.current.position.x = stepSpring(s.posX, pointer.current.x * 0.36, delta)
+      lean.current.position.y = stepSpring(s.posY, pointer.current.y * 0.24, delta)
     }
   })
 
@@ -218,19 +376,25 @@ function MetalKnot({ pointer }) {
       <group ref={drift}>
         <mesh ref={mesh} castShadow scale={0.78}>
           <torusKnotGeometry args={[1, 0.3, 512, 64]} />
-          <meshPhysicalMaterial
-            color="#3c3e45"
-            metalness={1}
-            roughness={0.14}
-            roughnessMap={imperfection}
-            envMapIntensity={1.35}
-            normalMap={flowA}
-            normalScale={normalScale}
-            clearcoat={0.85}
-            clearcoatRoughness={0.06}
-            clearcoatNormalMap={flowB}
-            clearcoatNormalScale={clearcoatNormalScale}
-          />
+          <primitive object={material} attach="material" />
+
+          {/* Invisible stand-in for hit testing. It inherits this mesh's exact
+              transform, so contact points map straight onto the visible
+              surface — but at a fraction of the triangles, since raycasting
+              the 65k-triangle display mesh on every pointer move is wasteful. */}
+          <mesh
+            visible={false}
+            onPointerMove={(e) => {
+              e.stopPropagation()
+              spawnRipple(e, 1)
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation()
+              spawnRipple(e, 2.4)
+            }}
+          >
+            <torusKnotGeometry args={[1, 0.3, 96, 16]} />
+          </mesh>
         </mesh>
       </group>
     </group>
@@ -239,13 +403,22 @@ function MetalKnot({ pointer }) {
 
 export default function HeroScene() {
   const pointer = useRef({ x: 0, y: 0 })
+  const stir = useRef({ x: 0, y: 0 })
 
-  // Tracked on window (not the canvas) because the hero's WebGL layer is
-  // pointer-events:none so it never receives its own pointer events.
+  // Tracked on window rather than on the canvas so the object still answers to
+  // the cursor while it's over the headline or the CTAs.
   useEffect(() => {
     const onMove = (e) => {
-      pointer.current.x = (e.clientX / window.innerWidth) * 2 - 1
-      pointer.current.y = -((e.clientY / window.innerHeight) * 2 - 1)
+      const x = (e.clientX / window.innerWidth) * 2 - 1
+      const y = -((e.clientY / window.innerHeight) * 2 - 1)
+
+      // Accumulate the frame's travel and clamp it — a flick across the whole
+      // viewport shouldn't be able to send the flow into a blur.
+      stir.current.x = THREE.MathUtils.clamp(stir.current.x + (x - pointer.current.x), -0.5, 0.5)
+      stir.current.y = THREE.MathUtils.clamp(stir.current.y + (y - pointer.current.y), -0.5, 0.5)
+
+      pointer.current.x = x
+      pointer.current.y = y
     }
     window.addEventListener('pointermove', onMove, { passive: true })
     return () => window.removeEventListener('pointermove', onMove)
@@ -263,7 +436,7 @@ export default function HeroScene() {
 
         {/* Offset into the right-hand negative space, away from the headline */}
         <group position={[2.12, 0.1, 0]}>
-          <MetalKnot pointer={pointer} />
+          <MetalKnot pointer={pointer} stir={stir} />
         </group>
 
         <ContactShadows
@@ -292,3 +465,4 @@ export default function HeroScene() {
     </Canvas>
   )
 }
+

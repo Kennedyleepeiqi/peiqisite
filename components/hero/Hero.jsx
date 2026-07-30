@@ -35,8 +35,9 @@ export default function Hero() {
       id="home"
       className="relative flex min-h-[100svh] flex-col justify-center overflow-hidden"
     >
-      {/* Interactive 3D backdrop */}
-      <div className="pointer-events-none absolute inset-0 z-0">
+      {/* Interactive 3D backdrop. This layer accepts pointer events so the
+          object can be touched directly; the overlays above it opt out. */}
+      <div className="absolute inset-0 z-0">
         <HeroScene />
       </div>
 
@@ -44,12 +45,12 @@ export default function Hero() {
           glass object breathe in the right-hand negative space. */}
       <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-r from-canvas via-canvas/60 to-transparent" />
 
-      <div className="container-lux relative z-10">
+      <div className="pointer-events-none container-lux relative z-10">
         <motion.div
           variants={container}
           initial="hidden"
           animate="show"
-          className="max-w-4xl"
+          className="pointer-events-auto max-w-4xl"
         >
           <motion.p variants={fade} className="eyebrow mb-8">
             Interactive Media · Digital Arts · Brand Identity
@@ -115,7 +116,7 @@ export default function Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.6, duration: 1 }}
-        className="container-lux absolute bottom-8 left-0 right-0 z-10 flex items-center justify-between text-[0.7rem] uppercase tracking-[0.28em] text-muted"
+        className="container-lux pointer-events-none absolute bottom-8 left-0 right-0 z-10 flex items-center justify-between text-[0.7rem] uppercase tracking-[0.28em] text-muted"
       >
         <span>Scroll</span>
         <span>Based in — Everywhere</span>

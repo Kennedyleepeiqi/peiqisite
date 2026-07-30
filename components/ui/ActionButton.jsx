@@ -55,14 +55,18 @@ export default function ActionButton({
     >
       <span
         aria-hidden="true"
-        className={`absolute inset-0 -z-10 opacity-0 transition-opacity duration-700 ease-lux group-hover:opacity-100 ${tokens.turn}`}
+        className={`absolute inset-0 -z-10 opacity-0 transition-opacity duration-500 ease-lux group-hover:opacity-100 group-hover:duration-1000 ${tokens.turn}`}
       />
 
       {/* Delayed so the highlight glances off metal that has already turned,
-          rather than off the resting surface. */}
+          rather than off the resting surface. The crossing is deliberately
+          unhurried, and eased almost symmetrically — a sharp ease-out would
+          fling the band across and leave it crawling at the far edge.
+          Duration collapses to zero on the way out so the band resets off-canvas
+          instead of visibly sliding back. */}
       <span
         aria-hidden="true"
-        className={`absolute inset-0 -z-10 -translate-x-[130%] transition-transform duration-1000 delay-100 ease-lux group-hover:translate-x-[130%] ${tokens.sheen}`}
+        className={`absolute inset-0 -z-10 -translate-x-[130%] transition-transform duration-0 group-hover:translate-x-[130%] group-hover:delay-200 group-hover:duration-[2200ms] group-hover:ease-[cubic-bezier(0.4,0,0.25,1)] ${tokens.sheen}`}
       />
 
       <span className="relative flex items-center justify-center gap-2 whitespace-nowrap">

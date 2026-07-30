@@ -120,6 +120,42 @@
   }
 }
 
+/* Marquee travel. Declared here rather than relying on Tailwind's `animation`
+   theme, because Tailwind only emits a @keyframes block when its matching
+   `animate-*` utility appears in the scanned source — and the track sets its
+   animation inline so the duration can be configured per instance.
+   translate3d keeps the track on the compositor for a smoother glide. */
+@keyframes marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/* Dissolve both ends so items enter and leave instead of being cut off. */
+.marquee-mask {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 14%,
+    #000 86%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 14%,
+    #000 86%,
+    transparent 100%
+  );
+}
+
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
 /* Fine film grain overlay for a tactile, premium finish */
 .grain::after {
   content: '';

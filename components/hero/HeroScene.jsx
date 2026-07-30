@@ -225,12 +225,16 @@ function createMetalMaterial({ imperfection, flowA, flowB }) {
 
 // Tuned for roughly 5% overshoot settling in ~0.6s: enough to feel like the
 // object carries weight, restrained enough that it never reads as bouncy.
-const SPRING_STIFFNESS = 90
-const SPRING_DAMPING = 13
+const LEAN_SPRING = { stiffness: 90, damping: 13 }
 
-function stepSpring(spring, target, delta) {
+// Deliberately soft and underdamped (ζ ≈ 0.35). A nudge here doesn't return
+// directly to rest — it drifts out, rocks back past centre and settles over
+// about two seconds, which is what gives the recoil its balloon-like buoyancy.
+const PUSH_SPRING = { stiffness: 26, damping: 3.6 }
+
+function stepSpring(spring, target, delta, { stiffness, damping }) {
   const acceleration =
-    (target - spring.value) * SPRING_STIFFNESS - spring.velocity * SPRING_DAMPING
+    (target - spring.value) * stiffness - spring.velocity * damping
   spring.velocity += acceleration * delta
   spring.value += spring.velocity * delta
   return spring.value
@@ -245,18 +249,30 @@ function stepSpring(spring, target, delta) {
  * rather than at a fixed speed — a constant spin is what reads as mechanical.
  */
 function MetalKnot({ pointer, stir }) {
+  const push = useRef()
   const lean = useRef()
   const drift = useRef()
   const mesh = useRef()
 
   const elapsed = useRef(0)
   const ripple = useRef({ next: 0, lastSpawn: -1 })
+  const nudge = useRef({ lastPush: -1 })
   const springs = useRef({
     rotX: { value: 0, velocity: 0 },
     rotY: { value: 0, velocity: 0 },
     posX: { value: 0, velocity: 0 },
     posY: { value: 0, velocity: 0 },
+    pushX: { value: 0, velocity: 0 },
+    pushY: { value: 0, velocity: 0 },
+    pushZ: { value: 0, velocity: 0 },
+    swell: { value: 0, velocity: 0 },
   })
+
+  // Reused so a pointer sweep doesn't allocate a vector per event.
+  const scratch = useMemo(
+    () => ({ centre: new THREE.Vector3(), away: new THREE.Vector3() }),
+    [],
+  )
 
   // Two layers at different scales, scrolled in opposing directions. Where the
   // two sets of swells cross they interfere, which is what stops the flow from
@@ -312,6 +328,52 @@ function MetalKnot({ pointer, stir }) {
     ripple.current.lastSpawn = time
   }
 
+  /**
+   * Shoves the object away from the point of contact.
+   *
+   * The impulse goes into the spring's velocity rather than its target, so
+   * there is nothing for it to settle towards except centre — it gets knocked
+   * aside and finds its own way back. Depth is heavily damped because a poke
+   * straight into the screen barely reads in perspective, whereas the same
+   * energy spent sideways is legible.
+   */
+  const applyPush = (event, gain) => {
+    if (!mesh.current || !push.current) return
+
+    const time = elapsed.current
+    if (time - nudge.current.lastPush < 0.22) return
+
+    // Only respond to a cursor that's actually travelling. Resting on the
+    // object shouldn't pump it, and a slow graze should barely move it.
+    const speed = Math.hypot(stir.current.x, stir.current.y)
+    if (gain < 2 && speed < 0.012) return
+
+    mesh.current.getWorldPosition(scratch.centre)
+    const away = scratch.away.copy(scratch.centre).sub(event.point)
+    away.z *= 0.3
+    if (away.lengthSq() < 1e-6) return
+    away.normalize()
+
+    const impulse = gain * (0.5 + Math.min(1, speed * 4) * 0.8)
+    const s = springs.current
+
+    // Velocities are clamped rather than summed freely: a frantic cursor should
+    // keep it afloat, not pump it out of frame.
+    s.pushX.velocity = THREE.MathUtils.clamp(s.pushX.velocity + away.x * impulse, -1.1, 1.1)
+    // A touch of lift on top of the sideways shove, so it rises as it recoils.
+    s.pushY.velocity = THREE.MathUtils.clamp(
+      s.pushY.velocity + away.y * impulse + impulse * 0.12,
+      -1.1,
+      1.1,
+    )
+    s.pushZ.velocity = THREE.MathUtils.clamp(s.pushZ.velocity + away.z * impulse * 0.6, -0.7, 0.7)
+    // Negative: it compresses under the touch first, then swells back past its
+    // resting size. Kept tiny — a few percent is buoyant, more is cartoonish.
+    s.swell.velocity = THREE.MathUtils.clamp(s.swell.velocity - impulse * 0.4, -0.9, 0.9)
+
+    nudge.current.lastPush = time
+  }
+
   useFrame((state, rawDelta) => {
     // Clamp so a backgrounded tab can't hand us a huge step and blow up the
     // spring integration.
@@ -364,38 +426,62 @@ function MetalKnot({ pointer, stir }) {
     // and settles back — the difference between "eased" and "has mass".
     if (lean.current) {
       const s = springs.current
-      lean.current.rotation.x = stepSpring(s.rotX, -pointer.current.y * 0.42, delta)
-      lean.current.rotation.y = stepSpring(s.rotY, pointer.current.x * 0.72, delta)
-      lean.current.position.x = stepSpring(s.posX, pointer.current.x * 0.36, delta)
-      lean.current.position.y = stepSpring(s.posY, pointer.current.y * 0.24, delta)
+      const cfg = LEAN_SPRING
+      lean.current.rotation.x = stepSpring(s.rotX, -pointer.current.y * 0.42, delta, cfg)
+      lean.current.rotation.y = stepSpring(s.rotY, pointer.current.x * 0.72, delta, cfg)
+      lean.current.position.x = stepSpring(s.posX, pointer.current.x * 0.36, delta, cfg)
+      lean.current.position.y = stepSpring(s.posY, pointer.current.y * 0.24, delta, cfg)
+    }
+
+    // The recoil rides on top of the lean rather than replacing it, so being
+    // knocked aside and drifting after the cursor can happen at once.
+    if (push.current) {
+      const s = springs.current
+      push.current.position.set(
+        stepSpring(s.pushX, 0, delta, PUSH_SPRING),
+        stepSpring(s.pushY, 0, delta, PUSH_SPRING),
+        stepSpring(s.pushZ, 0, delta, PUSH_SPRING),
+      )
+      push.current.scale.setScalar(1 + stepSpring(s.swell, 0, delta, PUSH_SPRING) * 0.055)
     }
   })
 
   return (
-    <group ref={lean}>
-      <group ref={drift}>
-        <mesh ref={mesh} castShadow scale={0.78}>
-          <torusKnotGeometry args={[1, 0.3, 512, 64]} />
-          <primitive object={material} attach="material" />
+    // Outermost so its axes stay world-aligned: the recoil should travel the
+    // direction the cursor pushed, not a direction skewed by the lean.
+    <group ref={push}>
+      <group ref={lean}>
+        <group ref={drift}>
+          <mesh ref={mesh} castShadow scale={0.78}>
+            <torusKnotGeometry args={[1, 0.3, 512, 64]} />
+            <primitive object={material} attach="material" />
 
-          {/* Invisible stand-in for hit testing. It inherits this mesh's exact
-              transform, so contact points map straight onto the visible
-              surface — but at a fraction of the triangles, since raycasting
-              the 65k-triangle display mesh on every pointer move is wasteful. */}
-          <mesh
-            visible={false}
-            onPointerMove={(e) => {
-              e.stopPropagation()
-              spawnRipple(e, 1)
-            }}
-            onPointerDown={(e) => {
-              e.stopPropagation()
-              spawnRipple(e, 2.4)
-            }}
-          >
-            <torusKnotGeometry args={[1, 0.3, 96, 16]} />
+            {/* Invisible stand-in for hit testing. It inherits this mesh's
+                exact transform, so contact points map straight onto the
+                visible surface — but at a fraction of the triangles, since
+                raycasting the 65k-triangle display mesh on every pointer move
+                is wasteful. */}
+            <mesh
+              visible={false}
+              onPointerEnter={(e) => {
+                e.stopPropagation()
+                applyPush(e, 1.15)
+              }}
+              onPointerMove={(e) => {
+                e.stopPropagation()
+                spawnRipple(e, 1)
+                applyPush(e, 0.85)
+              }}
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                spawnRipple(e, 2.4)
+                applyPush(e, 2.1)
+              }}
+            >
+              <torusKnotGeometry args={[1, 0.3, 96, 16]} />
+            </mesh>
           </mesh>
-        </mesh>
+        </group>
       </group>
     </group>
   )

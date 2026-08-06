@@ -119,6 +119,16 @@
     color: transparent;
     -webkit-text-fill-color: transparent;
     animation: sheen-sweep 7s linear infinite;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  /* background-clip:text trims italic serifs unless the box is padded out */
+  .text-sheen-metal.italic {
+    display: inline-block;
+    padding-bottom: 0.14em;
+    margin-bottom: -0.14em;
+    padding-right: 0.12em;
   }
 }
 

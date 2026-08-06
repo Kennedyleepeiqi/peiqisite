@@ -6,7 +6,7 @@
  */
 
 export const positioning = {
-  eyebrow: 'Brand Strategy · Visual Identity · UX/UI · Web & Digital',
+  eyebrow: 'Brand Strategy · Visual Identity · UX/UI · Apps & Systems',
   headline: ['Distinctive', 'design for every', 'touchpoint.'],
   intro:
     'Welcome. I am Peiqi, a multidisciplinary designer specializing in UI/UX and complete visual identities. I elevate your brand story across websites, smart namecards, and corporate collateral.',
@@ -39,11 +39,15 @@ export const deliverables = [
   'Visual Identity',
   'Namecards',
   'NFC Metal Cards',
+  'Custom QR Codes',
   'Letterheads',
   'Envelopes',
   'Document Headers',
   'Company Profiles',
   'UX/UI Design',
+  'Mobile Apps',
+  'Backend Systems',
+  'Admin Dashboards',
   'Websites',
   'E-Commerce',
   'Portfolio Sites',
@@ -169,6 +173,30 @@ export const services = [
       'Ad Creative',
     ],
   },
+  {
+    id: 'mobile',
+    title: 'Mobile App Design & Development',
+    desc: 'Native-feeling apps for iOS and Android, designed and built to match your brand. From onboarding to push notifications, every screen is structured around what the user needs to do next.',
+    tags: [
+      'iOS & Android',
+      'React Native',
+      'App UI/UX',
+      'Prototyping',
+      'App Store Launch',
+    ],
+  },
+  {
+    id: 'backend',
+    title: 'Backend & Operations Software',
+    desc: 'The dashboards, admin panels and internal tools that keep a business running. Order flows, inventory, client portals and API integrations, built so your team can operate without workarounds.',
+    tags: [
+      'Admin Dashboards',
+      'API Development',
+      'Workflow Automation',
+      'Database Design',
+      'Internal Tools',
+    ],
+  },
 ]
 
 /**
@@ -216,7 +244,7 @@ export const pieces = [
   },
   {
     id: 'nep-site-services',
-    src: '/work/nepmarine-services.jpg',
+    video: '/work/nepmarine-boat.mp4',
     label: 'Website',
     client: 'Nepmarine Agency',
     note: 'Services architecture',
@@ -255,11 +283,12 @@ export const pieces = [
     fit: 'contain',
   },
   {
-    id: 'slot-poster',
-    kind: 'sample',
-    label: 'Poster',
-    note: 'Add your artwork',
-    category: 'Print',
+    id: 'nep-doc-header',
+    src: '/work/nepmarine-document-header.png',
+    label: 'Document Header',
+    client: 'Nepmarine Agency',
+    note: 'MS Word letterhead system',
+    fit: 'contain',
   },
   {
     id: 'slot-social',
@@ -343,6 +372,65 @@ export const redesign = {
       backLabel: 'NFC steel — name etched, nothing else',
     },
   ],
+}
+
+/** Mobile apps and backend / operations software. */
+export const software = {
+  title: 'Apps and systems',
+  titleAccent: 'that run the business.',
+  intro:
+    'Beyond websites and print, I design and build the software your team and customers actually use every day. Mobile apps in their pocket, and the backend dashboards that keep operations moving.',
+  pillars: [
+    {
+      id: 'mobile',
+      label: 'Mobile Apps',
+      title: 'In their pocket, on brand.',
+      desc: 'Consumer and business apps for iOS and Android. Onboarding, navigation and every screen designed around one clear action, then built to ship on the App Store and Google Play.',
+      tags: [
+        'iOS & Android',
+        'React Native',
+        'App UI/UX',
+        'Push Notifications',
+        'Offline-Ready',
+      ],
+      stats: [
+        { value: '60fps', label: 'Smooth native interactions' },
+        { value: '1:1', label: 'Brand-matched design system' },
+      ],
+    },
+    {
+      id: 'backend',
+      label: 'Backend & Operations',
+      title: 'The engine behind the front.',
+      desc: 'Admin dashboards, client portals, inventory systems and API layers. Operational software your staff can rely on, with the data visibility to make decisions without chasing spreadsheets.',
+      tags: [
+        'Admin Dashboards',
+        'REST & GraphQL APIs',
+        'Workflow Automation',
+        'Role-Based Access',
+        'Real-Time Data',
+      ],
+      stats: [
+        { value: '24/7', label: 'Systems built to stay up' },
+        { value: 'API', label: 'Connected to everything else' },
+      ],
+    },
+  ],
+}
+
+/** Branded QR code to Linktree — scroll-driven phone journey. */
+export const qrShowcase = {
+  eyebrow: 'In detail — the QR code',
+  title: 'One scan,',
+  titleAccent: 'every link.',
+  intro:
+    'A custom QR code for Nepmarine\'s Linktree: the compass mark sits at the centre, the code reads clean at any size, and one scan opens their full contact hub on mobile.',
+  detail:
+    'Watch it play out exactly as it does in real life — the phone unlocks, the camera locks onto the code, and Safari lands on the live Linktree profile.',
+  url: 'https://linktr.ee/nepmarine.agency',
+  qrSrc: '/work/nepmarine-qr.png',
+  qrAlt: 'Nepmarine branded QR code with the compass mark at the centre',
+  tags: ['Custom QR', 'Linktree', 'Mobile-First', 'Brand Mark Integration'],
 }
 
 export const contact = {

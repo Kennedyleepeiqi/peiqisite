@@ -25,17 +25,22 @@ const line = {
   show: { y: '0%', transition: { duration: 1, ease } },
 }
 
+// Accent line uses a fade-up instead of a clip mask. Italic Fraunces runs past
+// its line box on every axis (ascenders, descenders like g/y, and the slant on
+// the right), and overflow-hidden was slicing those strokes — especially where
+// the next line's mask stacked on top.
+const lineAccent = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 1, ease } },
+}
+
 const fade = {
   hidden: { opacity: 0, y: 16 },
   show: { opacity: 1, y: 0, transition: { duration: 0.9, ease } },
 }
 
-// Each headline line is clipped so it can be revealed from below, but a 0.95
-// line box is shorter than the serif's descenders, so the tail of a "g" was
-// being sliced off. The padding drops the clip edge below the baseline and the
-// matching negative margin takes the space back, so the reveal still works and
-// the line rhythm is unchanged.
-const clip = 'block overflow-hidden pb-[0.22em] -mb-[0.22em]'
+// Clip masks only on lines without hanging italic descenders.
+const clip = 'block overflow-hidden pt-[0.14em] pb-[0.22em] -mt-[0.14em] -mb-[0.22em]'
 
 export default function Hero() {
   const [first, accent, last] = positioning.headline
@@ -67,21 +72,21 @@ export default function Hero() {
             {positioning.eyebrow}
           </motion.p>
 
-          <h1 className="font-serif text-[clamp(2.75rem,9vw,7.5rem)] font-light leading-[0.95] tracking-tightest text-ink">
+          <h1 className="font-serif text-[clamp(2.75rem,9vw,7.5rem)] font-light leading-[1.08] tracking-tightest text-ink">
             <span className={clip}>
               <motion.span variants={line} className="block">
                 {first}
               </motion.span>
             </span>
-            <span className={clip}>
+            <span className="relative z-[1] block pb-[0.1em]">
               <motion.span
-                variants={line}
-                className="text-sheen-metal block w-fit pr-[0.08em] italic"
+                variants={lineAccent}
+                className="text-sheen-metal italic"
               >
                 {accent}
               </motion.span>
             </span>
-            <span className={clip}>
+            <span className={`${clip} relative z-0`}>
               <motion.span variants={line} className="block">
                 {last}
               </motion.span>

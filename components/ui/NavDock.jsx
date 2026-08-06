@@ -8,6 +8,7 @@ const SECTIONS = [
   { id: 'home', label: 'Home' },
   { id: 'about', label: 'About' },
   { id: 'services', label: 'Services' },
+  { id: 'software', label: 'Apps' },
   { id: 'work', label: 'Work' },
   { id: 'contact', label: 'Contact' },
 ]
@@ -40,6 +41,7 @@ const SHIMMER = [
   { duration: 4.6, delay: 3.4 },
   { duration: 7.3, delay: 0.8 },
   { duration: 5.9, delay: 2.7 },
+  { duration: 6.1, delay: 1.4 },
 ]
 
 /**

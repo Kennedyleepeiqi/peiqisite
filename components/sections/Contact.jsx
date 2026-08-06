@@ -21,6 +21,8 @@ const projectTypes = [
   'Print, NFC & collateral',
   'UX/UI design',
   'Business website',
+  'Mobile app',
+  'Backend / ops software',
   'E-commerce or sales page',
   'Portfolio / personal site',
   'Social media & campaign',
@@ -72,7 +74,7 @@ export default function Contact() {
   return (
     <section id="contact" className="relative bg-canvas py-28 sm:py-40">
       <div className="container-lux">
-        <SectionHeading index="04" label="Contact & Enquiries" />
+        <SectionHeading index="05" label="Contact & Enquiries" />
 
         <div className="mt-14 grid grid-cols-1 gap-16 lg:grid-cols-12">
           <div className="lg:col-span-6">

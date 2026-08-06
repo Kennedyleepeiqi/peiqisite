@@ -51,6 +51,25 @@ export default function Work() {
     return () => ctx.revert()
   }, [])
 
+  // Keep any card video playing whenever it is on screen. The rail is
+  // translated horizontally, so browsers pause off-screen video to save
+  // power — this resumes it the moment the card scrolls back into view.
+  useEffect(() => {
+    const vids = section.current?.querySelectorAll('video') ?? []
+    if (!vids.length) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) e.target.play().catch(() => {})
+          else e.target.pause()
+        })
+      },
+      { threshold: 0.1 },
+    )
+    vids.forEach((v) => io.observe(v))
+    return () => io.disconnect()
+  }, [])
+
   return (
     <section
       id="work"
@@ -58,7 +77,7 @@ export default function Work() {
       className="relative overflow-hidden bg-canvas py-28 sm:py-40"
     >
       <div className="container-lux">
-        <SectionHeading index="03" label="Selected Work" />
+        <SectionHeading index="04" label="Selected Work" />
 
         <Reveal>
           <h2 className="mt-14 max-w-3xl font-serif text-[clamp(1.9rem,4.5vw,3.4rem)] font-light leading-[1.1] tracking-tight text-ink">
@@ -211,7 +230,18 @@ export default function Work() {
                 data-cursor="View"
                 className={`${CARD} group flex w-[80vw] flex-col overflow-hidden rounded-3xl border border-line bg-surface sm:w-[52vw] lg:w-[40vw]`}
               >
-                {p.fit === 'cover' ? (
+                {p.video ? (
+                  <div className="relative flex-1 overflow-hidden">
+                    <video
+                      src={p.video}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  </div>
+                ) : p.fit === 'cover' ? (
                   // Anchored to the top left, not the centre. A screenshot is
                   // wider than this card, and a centred crop eats into the
                   // headline and logo — the two things worth showing.
